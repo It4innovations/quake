@@ -12,6 +12,8 @@ services:
       - net
     volumes:
       - ../../:/app
+    hostname: mpi_head
+
   mpi_node:
     build: .
     # image: openmpi
@@ -19,6 +21,7 @@ services:
       - net
     volumes:
       - ../../:/app
+    hostname: mpi_node
 
 networks:
   net:
