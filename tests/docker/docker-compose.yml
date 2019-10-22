@@ -4,9 +4,9 @@ services:
   mpi_head:
     build: .
     # image: openmpi
-    ports: 
+    ports:
       - "22"
-    links: 
+    links:
       - mpi_node
     networks:
       - net

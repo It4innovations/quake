@@ -1,11 +1,16 @@
-
-import logging
 import asyncio
+import logging
 import os
+import tempfile
 import threading
 
+import uvloop
 
 from quake.task import TaskState
+
+# !!!!!!!!!!!!!!!
+uvloop.install()
+# !!!!!!!!!!!!!!!
 
 logger = logging.getLogger(__file__)
 
@@ -21,7 +26,7 @@ def server_thread_main(server):
     try:
         asyncio.set_event_loop(server.loop)
         server.loop.run_until_complete(server.stop_event.wait())
-        logging.debug("Server stopped")
+        logger.debug("Server stopped")
     finally:
         server.loop.close()
 
@@ -35,7 +40,19 @@ class Client:
         self.server.loop.call_soon_threadsafe(self.server.submit, tasks)
 
     def wait_for_task(self, task):
-        raise NotImplemented()
+        async def wait_for_task():
+            logger.debug("Waiting for task %s", task)
+            if task.state == TaskState.UNFINISHED:
+                event = asyncio.Event()
+                task.add_event(event)
+                await event.wait()
+            if task.state == TaskState.ERROR:
+                return task.error
+
+        f = asyncio.run_coroutine_threadsafe(wait_for_task(), loop=self.server.loop)
+        result = f.result()
+        if result is not None:
+            raise Exception(result)
 
 
 class Server:
@@ -68,8 +85,10 @@ class Server:
 
     def stop(self):
         logging.debug("Stopping server")
+
         async def _helper():
             self.stop_event.set()
+
         future = asyncio.run_coroutine_threadsafe(_helper(), self.loop)
         future.result()
 
@@ -92,7 +111,7 @@ class Server:
                 assert t.state != TaskState.RELEASED
                 assert t.keep or t in new_tasks, "Dependency on not-keep task"
                 t.consumers.add(task)
-                if not t.is_ready:
+                if not t.is_ready():
                     unfinished_deps += 1
             task.unfinished_deps = unfinished_deps
             if not unfinished_deps:
@@ -102,10 +121,8 @@ class Server:
         if new_ready_tasks:
             self.schedule()
 
-    def wait_for_task(self, task):
-        self.processes
-
     def schedule(self):
+        logger.debug("Scheduling ...")
         for task in self.ready_tasks:
             if task.n_workers <= len(self.free_workers):
                 workers = self.free_workers[:task.n_workers]
@@ -113,16 +130,36 @@ class Server:
                 self._start_task(task, workers)
 
     def _start_task(self, task, workers):
-        logging.debug("Starting task %s on %s", task, workers)
+        logger.debug("Starting task %s on %s", task, workers)
         assert task.state == TaskState.UNFINISHED and task.is_ready()
         assert task not in self.processes
 
         hostnames = ",".join(worker.hostname for worker in workers)
         command = self.run_prefix
-        command += ("mpirun", "--host", hostnames, "np", str(task.n_workers), "--bynode")
+        command += ("mpirun", "--host", hostnames, "--np", str(task.n_workers), "--map-by", "node")
         command += task.args
-        self._exec(task, command)
+        asyncio.ensure_future(self._exec(task, command))
 
     async def _exec(self, task, args):
-        await asyncio.create_subprocess_exec(args[0], args[1:], cwd=self.run_cwd)
-        logging.debug("Task %s finished", task)
+        print("ARGS", args)
+        with tempfile.TemporaryFile() as stdout_file:
+            with tempfile.TemporaryFile() as stderr_file:
+                process = await asyncio.create_subprocess_exec(
+                    *args, cwd=self.run_cwd, loop=self.loop, stderr=stderr_file, stdout=stdout_file)
+                exitcode = await process.wait()
+                if exitcode != 0:
+                    logger.debug("Task %s FAILED", task)
+                    stderr_file.seek(0)
+                    stderr = stderr_file.read().decode()
+                    stdout_file.seek(0)
+                    stdout = stdout_file.read().decode()
+                    message = "Task id={} failed. Exit code: {}\nStdout:\n{}\nStderr:\n{}\n".format(
+                        task.task_id, exitcode, stdout, stderr)
+                    task.set_error(message)
+                    for t in task.recursive_consumers():
+                        if t.state == TaskState.UNFINISHED:
+                            t.set_error(message)
+                else:
+                    logger.debug("Task %s finished", task)
+                    task.state = TaskState.FINISHED
+                    task.fire_events()

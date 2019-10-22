@@ -1,10 +1,17 @@
+import pytest
+
+from quake import Task
 
 
-from quake import Task, TaskInput, Server, Worker
-
-
-def test_submit(client):
-    t1 = Task(1, 2, ["ls"])
-    #t2 = Task(1, 3, ["ls"])"[TaskInput(t1, 0)])
+def test_task_fail(client):
+    t1 = Task(1, 2, ["ls", "/xxx"])
 
     client.submit([t1])
+    with pytest.raises(Exception, match="Task id=. failed."):
+        client.wait_for_task(t1)
+
+
+def test_simple_task(client):
+    t1 = Task(1, 2, ["ls", "/"])
+    client.submit([t1])
+    client.wait_for_task(t1)

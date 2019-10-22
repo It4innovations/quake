@@ -1,8 +1,8 @@
-
 class TaskState:
     UNFINISHED = 1
     FINISHED = 2
     RELEASED = 3
+    ERROR = 4
 
 
 class TaskInput:
@@ -30,16 +30,38 @@ class Task:
         self.unfinished_deps = None
         self.consumers = set()
         self.events = None
-        self.callbacks = None
+        self.events = None
+        self.error = None
 
-    def add_callbacks(self, callback):
-        callbacks = self.callbacks
-        if callbacks is None:
-            self.callbacks = [callback]
+    def recursive_consumers(self):
+        tasks = set()
+        stack = [self]
+        while stack:
+            task = stack.pop()
+            for t in task.consumers:
+                if t not in tasks:
+                    stack.append(t)
+                    tasks.append(t)
+        return tasks
+
+    def add_event(self, event):
+        events = self.events
+        if events is None:
+            self.events = [event]
         else:
-            callbacks.append(callback)
+            events.append(events)
 
-    @property
+    def set_error(self, error):
+        self.state = TaskState.ERROR
+        self.error = error
+        self.fire_events()
+
+    def fire_events(self):
+        if self.events:
+            for event in self.events:
+                event.set()
+            self.events = None
+
     def is_ready(self):
         return self.unfinished_deps == 0
 
