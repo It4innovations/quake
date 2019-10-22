@@ -145,7 +145,7 @@ class Server:
         with tempfile.TemporaryFile() as stdout_file:
             with tempfile.TemporaryFile() as stderr_file:
                 process = await asyncio.create_subprocess_exec(
-                    *args, cwd=self.run_cwd, loop=self.loop, stderr=stderr_file, stdout=stdout_file)
+                    *args, cwd=self.run_cwd, loop=self.loop, stderr=stderr_file, stdout=stdout_file, stdin=asyncio.subprocess.DEVNULL)
                 exitcode = await process.wait()
                 if exitcode != 0:
                     logger.debug("Task %s FAILED", task)

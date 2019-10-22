@@ -34,7 +34,7 @@ def docker_cluster():
 @pytest.fixture(scope="function")
 def client(docker_cluster):
     workers = [Worker(hostname=hostname) for hostname in docker_cluster]
-    server = Server(workers, run_prefix=("docker-compose", "exec", "--user", "mpirun", "--privileged", "mpi_head"),
+    server = Server(workers, run_prefix=("docker-compose", "exec", "-T", "--user", "mpirun", "--privileged", "mpi_head"),
                     run_cwd=DOCKER_DIR)
     server.start()
     client = Client(server)
