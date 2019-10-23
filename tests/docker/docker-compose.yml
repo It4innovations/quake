@@ -4,8 +4,10 @@ services:
   mpi_head:
     build: .
     # image: openmpi
+    environment:
+      - PYTHONPATH=/app
     ports:
-      - "22"
+      - 7602:8602
     links:
       - mpi_node
     networks:
@@ -17,8 +19,12 @@ services:
   mpi_node:
     build: .
     # image: openmpi
+    environment:
+      - PYTHONPATH=/app
     networks:
       - net
+    ports:
+      - 7603-7605:8602
     volumes:
       - ../../:/app
     hostname: mpi_node

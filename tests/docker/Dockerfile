@@ -11,8 +11,8 @@ ENV DEBIAN_FRONTEND=noninteractive \
 RUN apt-get update -y && \
     apt-get install -y --no-install-recommends sudo apt-utils && \
     apt-get install -y --no-install-recommends openssh-server \
-        python3-dev python3-pip python3-virtualenv python3-scipy \
-        gcc gfortran libopenmpi-dev openmpi-bin openmpi-common openmpi-doc binutils && \
+        python3-dev python3-pip python3-virtualenv python3-scipy psmisc \
+        gcc gfortran libopenmpi-dev openmpi-bin openmpi-common openmpi-doc binutils git && \
     apt-get clean && apt-get purge && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 RUN mkdir /var/run/sshd
@@ -52,7 +52,9 @@ RUN pip3 install --upgrade pip
 
 USER ${USER}
 RUN  pip3 install --user -U setuptools \
-    && pip3 install --user mpi4py
+    && pip3 install --user mpi4py uvloop
+
+RUN pip3 install git+https://github.com/spirali/abrpc.git --user
 
 # ------------------------------------------------------------
 # Configure OpenMPI

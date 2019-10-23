@@ -4,6 +4,9 @@ import subprocess
 import sys
 
 import pytest
+import time
+import socket
+
 
 logging.basicConfig(level=0)
 
@@ -13,7 +16,7 @@ ROOT_DIR = os.path.dirname(TESTS_DIR)
 
 sys.path.insert(0, ROOT_DIR)
 
-from quake import Client, Server, Worker  # noqa
+from quake.client import Client  # noqa
 
 
 @pytest.fixture(scope="session")
@@ -31,12 +34,52 @@ def docker_cluster():
                               cwd=DOCKER_DIR)
 
 
+cmd_prefix = ["docker-compose", "exec", "-T", "--user", "mpirun", "--privileged"]
+
+def make_cmds(cmd):
+
+    result = [
+        cmd_prefix + ["mpi_head"] + cmd
+    ]
+    for i in range(3):
+        result.append(cmd_prefix + ["--index={}".format(i + 1), "mpi_node"] + cmd)
+    return result
+
+
+def run_cmds(cmd):
+    for c in make_cmds(cmd):
+        subprocess.call(c, cwd=DOCKER_DIR)
+
+
+def wait_for_port(port):
+    print("Waiting for port", port)
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.connect(("localhost", port))
+    s.settimeout(6)
+    s.close()
+
+
+
 @pytest.fixture(scope="function")
 def client(docker_cluster):
-    workers = [Worker(hostname=hostname) for hostname in docker_cluster]
-    server = Server(workers, run_prefix=("docker-compose", "exec", "-T", "--user", "mpirun", "--privileged", "mpi_head"),
-                    run_cwd=DOCKER_DIR)
-    server.start()
-    client = Client(server)
-    yield client
-    server.stop()
+    ps = []
+    for cmd in make_cmds(["/bin/bash", "-c", "kill `cat /tmp/datasrv` ; sleep 0.1 ; rm -rf /tmp/data ; (python3 -m quake.datasrv /tmp/data & echo $! > /tmp/datasrv)"]):
+        p = subprocess.Popen(cmd, cwd=DOCKER_DIR)
+        ps.append(p)
+
+    # mapped in docker-compose.yml
+    #wait_for_port(7602)
+    #wait_for_port(7603)
+    #wait_for_port(7604)
+    #wait_for_port(7605)
+
+    time.sleep(2)
+
+    yield None
+
+    print("Clean up")
+    for p in ps:
+        p.kill()
+    time.sleep(0.1)
+    for p in ps:
+        p.terminate()
