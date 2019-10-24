@@ -83,3 +83,8 @@ def client(docker_cluster):
     time.sleep(0.1)
     for p in ps:
         p.terminate()
+
+
+@pytest.fixture()
+def root_dir():
+    return ROOT_DIR

@@ -23,8 +23,6 @@ services:
       - PYTHONPATH=/app
     networks:
       - net
-    ports:
-      - 7603-7605:8602
     volumes:
       - ../../:/app
     hostname: mpi_node
