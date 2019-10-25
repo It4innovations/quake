@@ -25,6 +25,9 @@ def main():
     logger.info("Working directory is: %s", args.workdir)
     os.makedirs(args.workdir)
 
+    if os.listdir(args.workdir):
+        raise Exception("Working directory '{}' is not empty".format(args.workdir))
+
     async def handle(conn):
         logger.info("New connection %s", conn)
         await conn.serve(service)
