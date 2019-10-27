@@ -1,28 +1,52 @@
 
 import logging
+import asyncio
+import uvloop
+import abrpc
 
+from .task import Task, TaskState
+
+uvloop.install()
 logger = logging.getLogger(__name__)
 
 
 class Client:
 
-    def __init__(self, server):
-        self.server = server
+    def __init__(self, hostname="localhost", port=8600):
+        self.connection = None
+        self.unsubmmited_tasks = []
+        self.loop = asyncio.get_event_loop()
+        self._connect(hostname, port)
+        self.id_counter = 0
 
-    def submit(self, tasks):
-        self.server.loop.call_soon_threadsafe(self.server.submit, tasks)
+    def _connect(self, hostname, port):
+        async def connect():
+            connection = abrpc.Connection(await asyncio.open_connection(hostname, port=port))
+            asyncio.ensure_future(connection.serve())
+            logger.info("Connection to server established")
+            return connection
 
-    def wait_for_task(self, task):
-        async def wait_for_task():
-            logger.debug("Waiting for task %s", task)
-            if task.state == TaskState.UNFINISHED:
-                event = asyncio.Event()
-                task.add_event(event)
-                await event.wait()
-            if task.state == TaskState.ERROR:
-                return task.error
+        logger.info("Connecting to server ...")
+        self.connection = self.loop.run_until_complete(connect())
 
-        f = asyncio.run_coroutine_threadsafe(wait_for_task(), loop=self.server.loop)
-        result = f.result()
-        if result is not None:
-            raise Exception(result)
+    def new_task(self, n_outputs, n_workers, args, keep=False, inputs=()):
+        task = Task(self.id_counter, n_outputs, n_workers, args, keep, inputs)
+        self.id_counter += 1
+        self.unsubmmited_tasks.append(task)
+        return task
+
+    def submit(self):
+        logger.debug("Submitting %s tasks", len(self.unsubmmited_tasks))
+        if not self.unsubmmited_tasks:
+            return
+        for task in self.unsubmmited_tasks:
+            assert task.state == TaskState.NEW
+            task.state = TaskState.SUBMITTED
+        tasks = [task.to_dict() for task in self.unsubmmited_tasks]
+        self.unsubmmited_tasks = []
+        self.loop.run_until_complete(self.connection.call("submit", tasks))
+
+    def wait(self, task):
+        logger.debug("Waiting on task id=%s", task.task_id)
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(self.connection.call("wait", task.task_id))

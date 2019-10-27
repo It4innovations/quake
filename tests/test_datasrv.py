@@ -29,10 +29,10 @@ def test_data_service(tmpdir, root_dir):
         c2 = connection2.call("get_data", "x_1", "localhost", PORT1)
         assert [b"123", b"123"] == await asyncio.gather(c1, c2)
 
-        path1 = await connection2.call("map_to_fs", "x_1")
-        assert isinstance(path1, str)
-        path2 = await connection2.call("map_to_fs", "x_1")
-        assert path2 == path1
+        #path1 = await connection2.call("map_to_fs", "x_1")
+        #assert isinstance(path1, str)
+        #path2 = await connection2.call("map_to_fs", "x_1")
+        #assert path2 == path1
 
         await connection1.call("remove", "x_1")
 
@@ -45,11 +45,13 @@ def test_data_service(tmpdir, root_dir):
         assert s1 == {'connections': 0,
                       'obj_data_provided': 2,
                       'obj_fetched': 0,
-                      'obj_file_provided': 0}
+                      #'obj_file_provided': 0
+                     }
         assert s2 == {'connections': 1,
                       'obj_data_provided': 2,
                       'obj_fetched': 1,
-                      'obj_file_provided': 2}
+                      #'obj_file_provided': 2
+                      }
 
         assert b"123" == await connection1.call("get_data", "x_1", "localhost", PORT2)
         assert b"123" == await connection1.call("get_data", "x_1", "localhost", PORT2)
@@ -59,11 +61,13 @@ def test_data_service(tmpdir, root_dir):
         assert s1 == {'connections': 1,
                       'obj_data_provided': 4,
                       'obj_fetched': 1,
-                      'obj_file_provided': 0}
+                      #'obj_file_provided': 0
+                      }
         assert s2 == {'connections': 1,
                       'obj_data_provided': 3,
                       'obj_fetched': 1,
-                      'obj_file_provided': 2}
+                      #'obj_file_provided': 2
+                      }
 
     try:
         time.sleep(0.3)

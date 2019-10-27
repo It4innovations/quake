@@ -67,4 +67,5 @@ ADD default-mca-params.conf ${HOME}/.openmpi/mca-params.conf
 RUN chown -R ${USER}:${USER} ${HOME}/.openmpi
 
 EXPOSE 22
+EXPOSE 8600
 CMD ["/usr/sbin/sshd", "-D"]

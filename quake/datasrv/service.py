@@ -20,7 +20,7 @@ class Service:
 
         self.stats_obj_fetched = 0
         self.stats_obj_data_provided = 0
-        self.stats_obj_file_provided = 0
+        #self.stats_obj_file_provided = 0
 
     async def _serve(self, connection, hostname, port):
         await connection.serve()
@@ -78,12 +78,13 @@ class Service:
         validate_name(name)
         obj = await self._get_object(name, hostname, port)
         self.stats_obj_data_provided += 1
-        data = await obj.get_data()
-        if data is None:
-            # This can happen in case of racing with .remove()
-            raise Exception("Object removed")
-        return data
+        return obj.get_data()
+        #if data is None:
+        #    # This can happen in case of racing with .remove()
+        #    raise Exception("Object removed")
+        #return data
 
+    """
     @expose()
     async def map_to_fs(self, name, hostname=None, port=None):
         validate_name(name)
@@ -94,6 +95,7 @@ class Service:
             # This can happen in case of racing with .remove()
             raise Exception("Object removed")
         return filename
+    """
 
     @expose()
     async def remove(self, name):
@@ -101,13 +103,13 @@ class Service:
         if obj_f is None:
             raise Exception("Object not found")
         del self.objects[name]
-        obj = await obj_f
-        await obj.remove()
+        #obj = await obj_f
+        #await obj.remove()
 
     @expose()
     async def get_stats(self):
         return {
-            "obj_file_provided": self.stats_obj_file_provided,
+            #"obj_file_provided": self.stats_obj_file_provided,
             "obj_data_provided": self.stats_obj_data_provided,
             "obj_fetched": self.stats_obj_fetched,
             "connections": len(self.connections),

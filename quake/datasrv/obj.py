@@ -1,4 +1,4 @@
-import aiofiles
+#  import aiofiles
 import asyncio
 import os
 
@@ -18,24 +18,29 @@ class Object:
             "size": self.size,
         }
 
+    """
     async def remove(self):
         async with self.lock:
             if self.filename:
                 await aiofiles.os.remove(self.filename)
             self.data = None
             self.filename = None
+    """
 
-    async def get_data(self):
-        if self.data is not None:
-            return self.data
+    def get_data(self):
+        return self.data
 
-        async with self.lock:
-            if self.filename:
-                async with aiofiles.open(self.filename, "rb") as f:
-                    return await f.read()
-            else:
-                return None
-
+    """
+    if self.data is not None:
+        return self.data
+    
+    async with self.lock:
+        if self.filename:
+            async with aiofiles.open(self.filename, "rb") as f:
+                return await f.read()
+        else:
+            return None
+    
     async def map_to_fs(self, workdir):
         async with self.lock:
             if self.filename is not None:
@@ -48,3 +53,4 @@ class Object:
                 await f.write(self.data)
                 self.data = None
             return filename
+    """

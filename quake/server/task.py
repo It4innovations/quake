@@ -5,20 +5,11 @@ class TaskState:
     ERROR = 4
 
 
-class TaskInput:
-
-    def __init__(self, task: "Task", output_id: int, layout=None):
-        assert 0 <= output_id < task.n_outputs
-        self.task = task
-        self.output_id = output_id
-        self.layout = layout
-
-
 class Task:
 
-    def __init__(self, n_outputs, n_workers, args, inputs=(), keep=False):
-        self.task_id = None
-        self.inputs = inputs
+    def __init__(self, task_id, n_outputs, n_workers, args, keep):
+        self.task_id = task_id
+        self.inputs = []
         self.n_outputs = n_outputs
         self.n_workers = n_workers
         self.args = tuple(args)
@@ -26,7 +17,7 @@ class Task:
         self.state = TaskState.UNFINISHED
         self.keep = keep
 
-        self.deps = frozenset(inp.task for inp in inputs)
+        self.deps = None
         self.unfinished_deps = None
         self.consumers = set()
         self.events = None

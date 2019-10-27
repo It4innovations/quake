@@ -36,6 +36,7 @@ def docker_cluster():
 
 cmd_prefix = ["docker-compose", "exec", "-T", "--user", "mpirun", "--privileged"]
 
+
 def make_cmds(cmd):
 
     result = [
@@ -63,9 +64,21 @@ def wait_for_port(port):
 @pytest.fixture(scope="function")
 def client(docker_cluster):
     ps = []
-    for cmd in make_cmds(["/bin/bash", "-c", "kill `cat /tmp/datasrv` ; sleep 0.1 ; rm -rf /tmp/data ; (python3 -m quake.datasrv /tmp/data & echo $! > /tmp/datasrv)"]):
-        p = subprocess.Popen(cmd, cwd=DOCKER_DIR)
+    for cmd in make_cmds(["/bin/bash", "-c", "pgrep python3 | xargs kill; sleep 0.1 ; rm -rf /tmp/data ; python3 -m quake.datasrv /tmp/data"]):
+        p = subprocess.Popen(cmd, cwd=DOCKER_DIR, stdin=subprocess.DEVNULL)
         ps.append(p)
+
+    time.sleep(1.5)
+
+    hostnames = ",".join(docker_cluster)
+    #cmd = cmd_prefix + ["mpi_head", "/bin/bash", "-c", "kill `pgrep -f quake.server` ; sleep 0.1; echo 'xxx'; python3 -m quake.server --workers={}".format(hostnames)]
+    cmd = cmd_prefix + ["mpi_head", "/bin/bash", "-c", "python3 -m quake.server --workers={}".format(hostnames)]
+    print(" ".join(cmd))
+    p = subprocess.Popen(cmd, cwd=DOCKER_DIR, stdin=subprocess.DEVNULL)
+    ps.append(p)
+
+    time.sleep(2)
+    client = Client(port=7600)
 
     # mapped in docker-compose.yml
     #wait_for_port(7602)
@@ -73,9 +86,7 @@ def client(docker_cluster):
     #wait_for_port(7604)
     #wait_for_port(7605)
 
-    time.sleep(2)
-
-    yield None
+    yield client
 
     print("Clean up")
     for p in ps:
@@ -83,6 +94,7 @@ def client(docker_cluster):
     time.sleep(0.1)
     for p in ps:
         p.terminate()
+        p.wait()
 
 
 @pytest.fixture()
