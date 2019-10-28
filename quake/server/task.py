@@ -7,12 +7,14 @@ class TaskState:
 
 class Task:
 
-    def __init__(self, task_id, n_outputs, n_workers, args, keep):
+    def __init__(self, task_id, n_outputs, n_workers, args, keep, config):
+        assert isinstance(config, bytes) or config is None
         self.task_id = task_id
         self.inputs = []
         self.n_outputs = n_outputs
         self.n_workers = n_workers
         self.args = tuple(args)
+        self.config = config
 
         self.state = TaskState.UNFINISHED
         self.keep = keep
@@ -23,6 +25,10 @@ class Task:
         self.events = None
         self.events = None
         self.error = None
+        self.placement = None
+
+    def make_data_name(self, output_id, part):
+        return "data_{}_{}_{}".format(self.task_id, output_id, part)
 
     def recursive_consumers(self):
         tasks = set()
@@ -45,9 +51,9 @@ class Task:
     def set_error(self, error):
         self.state = TaskState.ERROR
         self.error = error
-        self.fire_events()
+        self._fire_events()
 
-    def fire_events(self):
+    def _fire_events(self):
         if self.events:
             for event in self.events:
                 event.set()
@@ -56,5 +62,12 @@ class Task:
     def is_ready(self):
         return self.unfinished_deps == 0
 
+    def set_finished(self, workers):
+        assert self.state == TaskState.UNFINISHED
+        assert len(workers) == self.n_workers
+        self.state = TaskState.FINISHED
+        self.placement = [{w} for w in workers]
+        self._fire_events()
+
     def __repr__(self):
-        return "<Task id={}>".format(self.task_id)
+        return "<Task id={} w={}>".format(self.task_id, self.n_workers)

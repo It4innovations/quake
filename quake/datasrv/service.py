@@ -8,7 +8,7 @@ uvloop.install()
 
 def validate_name(name):
     if not name.isidentifier():
-        raise Exception("String '{}' is not valid name")
+        raise Exception("String '{}' is not valid name".format(name))
 
 
 class Service:
