@@ -12,7 +12,8 @@ logger = logging.getLogger(__name__)
 
 class Client:
 
-    PY_JOB_ARGS = ("python3", "-m", "quake.job", "$RANK")
+    PY_JOB_ARGS = ("python3", "-m", "quake.job", "$TASK_ID", "$RANK", "$DS_PORT")
+    DEFAULT_ENV = {}
 
     def __init__(self, hostname="localhost", port=8600):
         self.connection = None
@@ -41,6 +42,7 @@ class Client:
         config = {
             "type": "mpirun",
             "args": args,
+            "env": self.DEFAULT_ENV
         }
         if task_data is not None:
             assert isinstance(task_data, bytes)
@@ -56,7 +58,7 @@ class Client:
             assert isinstance(d, bytes)
         config = {
             "type": "upload",
-            "data": data
+            "data": data,
         }
         return self.new_task(1, len(data), config, keep, ())
 

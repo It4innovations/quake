@@ -79,6 +79,7 @@ def client(docker_cluster):
 
     time.sleep(3)
     client = Client(port=7600)
+    client.DEFAULT_ENV = {"PYTHONPATH": "/app:/app/tests"}
 
     # mapped in docker-compose.yml
     #wait_for_port(7602)

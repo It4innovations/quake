@@ -2,12 +2,20 @@
 import logging
 import abrpc
 import asyncio
-import cloudpickle
+#import cloudpickle
+import pickle
 
 import uvloop
 from quake.common.utils import make_data_name
 
 logger = logging.getLogger(__name__)
+
+
+class JobContext:
+
+    def __init__(self, rank, inputs):
+        self.rank = rank
+        self.inputs = inputs
 
 
 class Job:
@@ -45,7 +53,7 @@ class Job:
 
     async def download_config(self):
         data = await self.download_object("taskdata_{}".format(self.task_id))
-        return cloudpickle.loads(data)
+        return pickle.loads(data)
 
     async def download_input(self, task_id, output_id, parts):
         return await asyncio.gather(
@@ -68,7 +76,8 @@ class Job:
             fs.append(self.download_input(job_inp.task_id, job_inp.output_id, parts))
 
         input_data = await asyncio.gather(*fs)
-        output = config.fn(input_data)
+        jctx = JobContext(self.rank, input_data)
+        output = config.fn(jctx)
         assert len(output) == config.n_outputs
 
         for i, data in enumerate(output):

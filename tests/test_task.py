@@ -1,5 +1,6 @@
 import pytest
-import cloudpickle
+#import cloudpickle
+import pickle
 import quake.job
 
 
@@ -38,13 +39,17 @@ def test_upload_download(client):
         client.gather(t1, 0)
 
 
+def job1(job):
+    return [b"out" + str(job.rank).encode("ascii")]
+
+
 def test_py_job(client):
-    def job1(_inputs):
-        return [b"out1"]
 
     cfg = quake.job.config.JobConfiguration(job1, (), 1)
-    task_data = cloudpickle.dumps(cfg)
+    task_data = pickle.dumps(cfg)
 
     t1 = client.new_py_task(1, 2, task_data=task_data, keep=True)
     client.submit()
     client.wait(t1)
+
+    assert [b"out0", b"out1"] == client.gather(t1, 0)

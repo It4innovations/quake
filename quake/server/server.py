@@ -59,7 +59,7 @@ async def _remove_task(task):
         for part in range(task.n_workers):
             fs.append(_remove_from_workers(task.placement[output_id][part], task.make_data_name(output_id, part)))
     await asyncio.gather(*fs)
-    logger.debug("All parts of task % was removed (%s calls)", task, len(fs))
+    logger.debug("All parts of task %s was removed (%s calls)", task, len(fs))
 
 
 async def _upload_on_workers(workers, name, data):
@@ -221,9 +221,17 @@ class Server:
                 args.append("1")
                 args.append("--host")
                 args.append(worker.hostname)
+                if "env" in task.config:
+                    for name, value in task.config["env"].items():
+                        args.append("-x")
+                        args.append("{}={}".format(name, value))
                 for arg in config_args:
                     if arg == "$RANK":
                         args.append(str(rank))
+                    elif arg == "$TASK_ID":
+                        args.append(str(task.task_id))
+                    elif arg == "$DS_PORT":
+                        args.append(str(self.ds_port))
                     else:
                         args.append(arg)
             asyncio.ensure_future(self._exec(task, args, workers))
@@ -272,11 +280,6 @@ class Server:
             self._task_failed(task, workers, "Upload failed: " + str(e))
 
     async def _exec(self, task, args, workers):
-        env = os.environ.copy()
-        env["QUAKE_TASK_ID"] = str(task.task_id)
-        env["QUAKE_DATA_PLACEMENT"] = ""
-        env["QUAKE_LOCAL_DS_PORT"] = str(self.ds_port)
-
         task_data = task.config.get("data")
         if task_data is not None:
             data_key = "taskdata_{}".format(task.task_id)
@@ -289,7 +292,7 @@ class Server:
                 with tempfile.TemporaryFile() as stderr_file:
                     logger.debug("Starting %s: %s", task, args)
                     process = await asyncio.create_subprocess_exec(
-                        *args, stderr=stderr_file, stdout=stdout_file, stdin=asyncio.subprocess.DEVNULL, env=env)
+                        *args, stderr=stderr_file, stdout=stdout_file, stdin=asyncio.subprocess.DEVNULL)
                     exitcode = await process.wait()
                     if exitcode != 0:
                         stderr_file.seek(0)

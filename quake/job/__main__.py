@@ -11,10 +11,13 @@ uvloop.install()
 
 def parse_args():
     parser = argparse.ArgumentParser()
+    parser.add_argument("task_id", type=int)
     parser.add_argument("rank", type=int)
+    parser.add_argument("ds_local_port", type=int)
     return parser.parse_args()
 
 
+"""
 def read_env():
     data_placements = {}
     for line in os.environ["QUAKE_DATA_PLACEMENT"].split("\n"):
@@ -25,12 +28,12 @@ def read_env():
     ds_local_port = int(os.environ["QUAKE_LOCAL_DS_PORT"])
     task_id = int(os.environ["QUAKE_TASK_ID"])
     return data_placements, ds_local_port, task_id
-
+"""
 
 async def main():
     args = parse_args()
-    data_placements, ds_local_port, task_id = read_env()
-    job = Job(task_id, args.rank, ds_local_port, data_placements)
+    #data_placements, ds_local_port, task_id = read_env()
+    job = Job(args.task_id, args.rank, args.ds_local_port, {})
     await job.start()
 
 if __name__ == "__main__":
