@@ -77,7 +77,7 @@ def client(docker_cluster):
     p = subprocess.Popen(cmd, cwd=DOCKER_DIR, stdin=subprocess.DEVNULL)
     ps.append(p)
 
-    time.sleep(2)
+    time.sleep(3)
     client = Client(port=7600)
 
     # mapped in docker-compose.yml

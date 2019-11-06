@@ -53,6 +53,34 @@ async def _wait_for_task(task):
         assert 0
 
 
+async def _remove_task(task):
+    fs = []
+    for output_id in range(task.n_outputs):
+        for part in range(task.n_workers):
+            fs.append(_remove_from_workers(task.placement[output_id][part], task.make_data_name(output_id, part)))
+    await asyncio.gather(*fs)
+    logger.debug("All parts of task % was removed (%s calls)", task, len(fs))
+
+
+async def _upload_on_workers(workers, name, data):
+    fs = [w.ds_connection.call("upload", name, data) for w in workers]
+    await asyncio.gather(*fs)
+
+
+async def _remove_from_workers(workers, name):
+    fs = [w.ds_connection.call("remove", name) for w in workers]
+    await asyncio.wait(fs)
+
+
+def _check_removal(task):
+    if task.keep or task.consumers:
+        return
+    assert task.state == TaskState.FINISHED
+
+    logger.debug("Removing task %s", task)
+    asyncio.ensure_future(_remove_task(task))
+
+
 class Server:
 
     def __init__(self, worker_hostnames, local_ds_port):
@@ -76,7 +104,6 @@ class Server:
         #self.run_prefix = tuple(run_prefix)
         #self.run_cwd = run_cwd
 
-        self.ds_connections = {}
         self.local_ds_connection = None
         self.ds_port = local_ds_port
 
@@ -86,9 +113,9 @@ class Server:
         if task is None:
             raise Exception("Task '{}' not found".format(task_id))
         await _wait_for_task(task)
-        workers = [random.choice(tuple(ws)) for ws in task.placement]
+        workers = [random.choice(tuple(ws)) for ws in task.placement[output_id]]
         assert len(workers) == task.n_workers
-        fs = [self.ds_connections[w].call("get_data", task.make_data_name(output_id, i)) for i, w in enumerate(workers)]
+        fs = [w.ds_connection.call("get_data", task.make_data_name(output_id, i)) for i, w in enumerate(workers)]
         return await asyncio.gather(*fs)
 
     @abrpc.expose()
@@ -97,6 +124,25 @@ class Server:
         if task is None:
             raise Exception("Task '{}' not found".format(task_id))
         await _wait_for_task(task)
+
+    @abrpc.expose()
+    async def unkeep(self, task_id):
+        task = self.tasks.get(task_id)
+        if task is None:
+            raise Exception("Task '{}' not found".format(task_id))
+        if not task.keep:
+            raise Exception("Task '{}' does have 'keep' flag".format(task_id))
+        task.keep = False
+        if task.state == TaskState.UNFINISHED:
+            # Do nothing
+            return
+        elif task.state == TaskState.FINISHED:
+            _check_removal(task)
+            return
+        elif task.state == TaskState.ERROR:
+            raise Exception(task.error)
+        else:
+            assert 0
 
     @abrpc.expose()
     async def submit(self, tasks):
@@ -111,7 +157,7 @@ class Server:
 
         for tdict in tasks:
             task_id = tdict["task_id"]
-            task = Task(task_id, tdict["n_outputs"], tdict["n_workers"], tdict["args"], tdict["keep"], tdict["config"])
+            task = Task(task_id, tdict["n_outputs"], tdict["n_workers"], tdict["config"], tdict["keep"])
             logger.debug("Task %s submitted", task_id)
             task_map[task_id] = task
             new_tasks.add(task)
@@ -154,8 +200,9 @@ class Server:
         assert task.state == TaskState.UNFINISHED and task.is_ready()
         assert task not in self.processes
 
-        if task.args[0] == "UPLOAD":  # UPLOAD TASK
-            logger.debug("Executing upload task %s to workers %s", task)
+        task_type = task.config.get("type")
+        if task_type == "upload":  # UPLOAD TASK
+            logger.debug("Executing upload task %s to workers %s", task, workers)
             asyncio.ensure_future(self._upload(task, workers))
             logger.debug("Upload of task %s finished", task)
             return
@@ -164,33 +211,31 @@ class Server:
         #command += ("mpirun", "--host", hostnames, "--np", str(task.n_workers), "--map-by", "node")
         #command += task.args
 
-        args = ["mpirun"]
-        for rank, worker in enumerate(workers):
-            if rank != 0:
-                args.append(":")
-            args.append("-np")
-            args.append("1")
-            args.append("--host")
-            args.append(worker.hostname)
-            for arg in task.args:
-                if arg == "$RANK":
-                    args.append(str(rank))
-                else:
-                    args.append(arg)
-
-        asyncio.ensure_future(self._exec(task, args, workers))
-
-    async def _upload_on_workers(self, workers, name, data):
-        fs = [self.ds_connections[w].call("upload", name, data) for w in workers]
-        await asyncio.wait(fs)
-
-    async def _remove_from_workers(self, workers, name):
-        fs = [self.ds_connections[w].call("remove", name) for w in workers]
-        await asyncio.wait(fs)
+        elif task_type == "mpirun":
+            args = ["mpirun"]
+            config_args = task.config["args"]
+            for rank, worker in enumerate(workers):
+                if rank != 0:
+                    args.append(":")
+                args.append("-np")
+                args.append("1")
+                args.append("--host")
+                args.append(worker.hostname)
+                for arg in config_args:
+                    if arg == "$RANK":
+                        args.append(str(rank))
+                    else:
+                        args.append(arg)
+            asyncio.ensure_future(self._exec(task, args, workers))
+        else:
+            raise Exception("Invalid task type")
 
     def _task_failed(self, task, workers, message):
         logger.error("Task %s FAILED: %s", task, message)
         task.set_error(message)
+        for t in task.inputs:
+            t.consumers.remove(self)
+        _check_removal(task)
         for t in task.recursive_consumers():
             if t.state == TaskState.UNFINISHED:
                 t.set_error(message)
@@ -201,6 +246,9 @@ class Server:
         logger.debug("Task %s finished", task)
         task.set_finished(workers)
         new_ready_tasks = False
+        for t in task.inputs:
+            t.consumers.remove(self)
+        _check_removal(task)
         for t in task.consumers:
             t.unfinished_deps -= 1
             if t.unfinished_deps <= 0:
@@ -213,9 +261,9 @@ class Server:
             self.schedule()
 
     async def _upload(self, task, workers):
-        parts = task.args[1:]
+        parts = task.config["data"]
         try:
-            fs = [self.ds_connections[workers[i]].call("upload", task.make_data_name(0, i), data)
+            fs = [workers[i].ds_connection.call("upload", task.make_data_name(0, i), data)
                   for i, data in enumerate(parts)]
             await asyncio.wait(fs)
             self._task_finished(task, workers)
@@ -229,15 +277,17 @@ class Server:
         env["QUAKE_DATA_PLACEMENT"] = ""
         env["QUAKE_LOCAL_DS_PORT"] = str(self.ds_port)
 
-        if task.config is not None:
-            config_key = "config_{}".format(task.task_id)
-            await self._upload_on_workers(workers, config_key, task.config)
+        task_data = task.config.get("data")
+        if task_data is not None:
+            data_key = "taskdata_{}".format(task.task_id)
+            await _upload_on_workers(workers, data_key, task_data)
         else:
-            config_key = None
+            data_key = None
 
         try:
             with tempfile.TemporaryFile() as stdout_file:
                 with tempfile.TemporaryFile() as stderr_file:
+                    logger.debug("Starting %s: %s", task, args)
                     process = await asyncio.create_subprocess_exec(
                         *args, stderr=stderr_file, stdout=stdout_file, stdin=asyncio.subprocess.DEVNULL, env=env)
                     exitcode = await process.wait()
@@ -252,8 +302,8 @@ class Server:
                     else:
                         self._task_finished(task, workers)
         finally:
-            if config_key:
-                await self._remove_from_workers(workers, config_key)
+            if data_key:
+                await _remove_from_workers(workers, data_key)
 
     async def connect_to_ds(self):
         async def connect(hostname, port):
@@ -263,5 +313,7 @@ class Server:
 
         fs = [connect(w.hostname, self.ds_port) for w in self.all_workers]
         connections = await asyncio.gather(*fs)
-        self.ds_connections = dict(zip(self.all_workers, connections))
+
+        for w, c in zip(self.all_workers, connections):
+            w.ds_connection = c
         self.local_ds_connection = connections[0]

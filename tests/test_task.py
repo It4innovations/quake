@@ -19,14 +19,23 @@ def test_simple_task(client):
 
 
 def test_upload_download(client):
+    print("HERE1")
     t1 = client.upload_data([b"123", b"567"], keep=True)
+    print("HERE2")
     client.submit()
+    print("HERE3")
     client.wait(t1)
 
     t2 = client.upload_data([b"abcd", b"xyz", b"fffff"], keep=True)
     client.submit()
     assert [b"abcd", b"xyz", b"fffff"] == client.gather(t2, 0)
     assert [b"123", b"567"] == client.gather(t1, 0)
+    assert [b"123", b"567"] == client.gather(t1, 0)
+
+    client.unkeep(t1)
+
+    with pytest.raises(Exception, match=".*keep.*"):
+        client.gather(t1, 0)
 
 
 def test_py_job(client):
@@ -34,8 +43,8 @@ def test_py_job(client):
         return [b"out1"]
 
     cfg = quake.job.config.JobConfiguration(job1, (), 1)
-    cfg_data = cloudpickle.dumps(cfg)
+    task_data = cloudpickle.dumps(cfg)
 
-    t1 = client.new_py_task(1, 2, config=cfg_data, keep=True)
+    t1 = client.new_py_task(1, 2, task_data=task_data, keep=True)
     client.submit()
     client.wait(t1)

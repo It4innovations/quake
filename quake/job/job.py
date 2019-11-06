@@ -5,7 +5,7 @@ import asyncio
 import cloudpickle
 
 import uvloop
-
+from quake.common.utils import make_data_name
 
 logger = logging.getLogger(__name__)
 
@@ -44,25 +44,23 @@ class Job:
             return await self.ds_connection.call("get_data", name, hostname, port)
 
     async def download_config(self):
-        data = await self.download_object("config_{}".format(self.task_id))
+        data = await self.download_object("taskdata_{}".format(self.task_id))
         return cloudpickle.loads(data)
 
     async def download_input(self, task_id, output_id, parts):
         return await asyncio.gather(
-            *[await self.download_object("{}-{}-{}".format(task_id, output_id, part))
+            *[await self.download_object(make_data_name(task_id, output_id, part))
               for part in parts])
 
-    async def upload_data(self, output_id):
-        key = "{}-{}-{}".format(self.task_id, output_id, self.rank)
-        raise NotImplementedError()
+    async def upload_data(self, output_id, data):
+        name = make_data_name(self.task_id, output_id, self.rank)
+        await self.ds_connection.call("upload", name, data)
 
     async def start(self):
         logger.info("Starting task id=%s", self.task_id)
 
         await self.connect_to_ds()
         config = await self.download_config()
-
-        print(config)
 
         fs = []
         for job_inp in config.inputs:
@@ -71,7 +69,7 @@ class Job:
 
         input_data = await asyncio.gather(*fs)
         output = config.fn(input_data)
-        assert len(output) == job_inp.n_outputs
+        assert len(output) == config.n_outputs
 
         for i, data in enumerate(output):
             await self.upload_data(i, data)

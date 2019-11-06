@@ -31,18 +31,39 @@ class Client:
         logger.info("Connecting to server ...")
         self.connection = self.loop.run_until_complete(connect())
 
-    def new_task(self, n_outputs, n_workers, args, keep=False, config=None, inputs=()):
-        task = Task(self.id_counter, n_outputs, n_workers, args, keep, config, inputs)
+    def new_task(self, n_outputs, n_workers, config, keep=False, inputs=()):
+        task = Task(self.id_counter, n_outputs, n_workers, config, keep, inputs)
         self.id_counter += 1
         self.unsubmitted_tasks.append(task)
         return task
 
-    def new_py_task(self, n_outputs, n_workers, keep=False, config=None, inputs=()):
-        return self.new_task(n_outputs, n_workers, self.PY_JOB_ARGS, keep, config, inputs)
+    def new_mpirun_task(self, n_outputs, n_workers, args, keep=False, task_data=None, inputs=()):
+        config = {
+            "type": "mpirun",
+            "args": args,
+        }
+        if task_data is not None:
+            assert isinstance(task_data, bytes)
+            config["data"] = task_data
+        return self.new_task(n_outputs, n_workers, config, keep, inputs)
+
+    def new_py_task(self, n_outputs, n_workers, keep=False, task_data=None, inputs=()):
+        return self.new_mpirun_task(n_outputs, n_workers, self.PY_JOB_ARGS, keep, task_data, inputs)
 
     def upload_data(self, data, keep=False):
         assert isinstance(data, list)
-        return self.new_task(1, len(data), ["UPLOAD"] + data, keep, None, ())
+        for d in data:
+            assert isinstance(d, bytes)
+        config = {
+            "type": "upload",
+            "data": data
+        }
+        return self.new_task(1, len(data), config, keep, ())
+
+    def unkeep(self, task):
+        logger.debug("Unkeeping id=%s", task.task_id)
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(self.connection.call("unkeep", task.task_id))
 
     def submit(self):
         logger.debug("Submitting %s tasks", len(self.unsubmitted_tasks))

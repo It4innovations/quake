@@ -1,3 +1,5 @@
+from quake.common.utils import make_data_name
+
 class TaskState:
     UNFINISHED = 1
     FINISHED = 2
@@ -7,13 +9,11 @@ class TaskState:
 
 class Task:
 
-    def __init__(self, task_id, n_outputs, n_workers, args, keep, config):
-        assert isinstance(config, bytes) or config is None
+    def __init__(self, task_id, n_outputs, n_workers, config, keep):
         self.task_id = task_id
         self.inputs = []
         self.n_outputs = n_outputs
         self.n_workers = n_workers
-        self.args = tuple(args)
         self.config = config
 
         self.state = TaskState.UNFINISHED
@@ -25,10 +25,10 @@ class Task:
         self.events = None
         self.events = None
         self.error = None
-        self.placement = None
+        self.placement = None  # placement[output_id][part_id] -> set of workers where is data placed
 
     def make_data_name(self, output_id, part):
-        return "data_{}_{}_{}".format(self.task_id, output_id, part)
+        return make_data_name(self.task_id, output_id, part)
 
     def recursive_consumers(self):
         tasks = set()
@@ -66,8 +66,12 @@ class Task:
         assert self.state == TaskState.UNFINISHED
         assert len(workers) == self.n_workers
         self.state = TaskState.FINISHED
-        self.placement = [{w} for w in workers]
+        self.placement = [[{w} for w in workers] for _ in range(self.n_outputs)]
         self._fire_events()
+
+    def set_released(self):
+        assert self.state == TaskState.FINISHED
+        self.state = TaskState.RELEASED
 
     def __repr__(self):
         return "<Task id={} w={}>".format(self.task_id, self.n_workers)

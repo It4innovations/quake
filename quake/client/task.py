@@ -10,13 +10,12 @@ class TaskState(enum.Enum):
 
 class Task:
 
-    def __init__(self, task_id, n_outputs, n_workers, args, keep, config, inputs):
-        assert isinstance(config, bytes) or config is None
+    def __init__(self, task_id, n_outputs, n_workers, config, keep, inputs):
         self.task_id = task_id
         self.inputs = inputs
         self.n_outputs = n_outputs
         self.n_workers = n_workers
-        self.args = tuple(args)
+        self.config = config
         self.keep = keep
         self.config = config
         self.state = TaskState.NEW
@@ -27,9 +26,8 @@ class Task:
             "inputs": [inp.to_dict() for inp in self.inputs],
             "n_outputs": self.n_outputs,
             "n_workers": self.n_workers,
-            "args": self.args,
+            "config": self.config,
             "keep": self.keep,
-            "config": self.config
         }
 
     def output(self, output_id, layout=None):

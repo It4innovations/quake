@@ -68,7 +68,7 @@ class Service:
         if name in self.objects:
             raise Exception("Object '{}' already exists".format(name))
         if not isinstance(data, bytes):
-            raise Exception("Data is not bytes")
+            raise Exception("Data is not bytes, but {}".format(type(data)))
         obj_f = asyncio.Future()
         obj_f.set_result(Object(name, data))
         self.objects[name] = obj_f
