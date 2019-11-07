@@ -1,6 +1,5 @@
 #  import aiofiles
 import asyncio
-import os
 
 
 class Object:

@@ -1,14 +1,14 @@
 import asyncio
+import json
 import logging
+import random
 import tempfile
 
 import abrpc
 import uvloop
-import os
 
 from .task import TaskState, Task
 from ..common.taskinput import TaskInput
-import random
 
 # !!!!!!!!!!!!!!!
 uvloop.install()
@@ -101,8 +101,8 @@ class Server:
         self.free_workers = list(workers)
 
         self.processes = {}
-        #self.run_prefix = tuple(run_prefix)
-        #self.run_cwd = run_cwd
+        # self.run_prefix = tuple(run_prefix)
+        # self.run_cwd = run_cwd
 
         self.local_ds_connection = None
         self.ds_port = local_ds_port
@@ -207,12 +207,13 @@ class Server:
             logger.debug("Upload of task %s finished", task)
             return
 
-        #command = () #  self.run_prefix
-        #command += ("mpirun", "--host", hostnames, "--np", str(task.n_workers), "--map-by", "node")
-        #command += task.args
+        # command = () #  self.run_prefix
+        # command += ("mpirun", "--host", hostnames, "--np", str(task.n_workers), "--map-by", "node")
+        # command += task.args
 
         elif task_type == "mpirun":
             args = ["mpirun"]
+            args.append("--tag-output")
             config_args = task.config["args"]
             for rank, worker in enumerate(workers):
                 if rank != 0:
@@ -241,8 +242,9 @@ class Server:
     def _task_failed(self, task, workers, message):
         logger.error("Task %s FAILED: %s", task, message)
         task.set_error(message)
-        for t in task.inputs:
-            t.consumers.remove(self)
+        for inp in task.inputs:
+            if task in inp.task.consumers:
+                inp.task.consumers.remove(task)
         _check_removal(task)
         for t in task.recursive_consumers():
             if t.state == TaskState.UNFINISHED:
@@ -254,8 +256,9 @@ class Server:
         logger.debug("Task %s finished", task)
         task.set_finished(workers)
         new_ready_tasks = False
-        for t in task.inputs:
-            t.consumers.remove(self)
+        for inp in task.inputs:
+            if task in inp.task.consumers:
+                inp.task.consumers.remove(task)
         _check_removal(task)
         for t in task.consumers:
             t.unfinished_deps -= 1
@@ -279,15 +282,40 @@ class Server:
             logger.error(e)
             self._task_failed(task, workers, "Upload failed: " + str(e))
 
-    async def _exec(self, task, args, workers):
-        task_data = task.config.get("data")
-        if task_data is not None:
-            data_key = "taskdata_{}".format(task.task_id)
-            await _upload_on_workers(workers, data_key, task_data)
-        else:
-            data_key = None
+    def _create_placement_data(self, task):
+        placements = {}
+        for inp in task.inputs:
+            p = inp.task.placement[inp.output_id]
+            for i in range(inp.task.n_workers):
+                name = inp.task.make_data_name(inp.output_id, i)
+                placements[name] = [(w.hostname, self.ds_port) for w in p[i]]
+        inputs = [
+            {"task_id": inp.task.task_id,
+             "output_id": inp.output_id,
+             "n_parts": inp.task.n_workers,
+             "layout": inp.layout}
+            for inp in task.inputs
+        ]
 
+        return {
+            "placements": placements,
+            "inputs": inputs
+        }
+
+    async def _exec(self, task, args, workers):
+        data_key = None
+        placement_key = None
         try:
+            task_data = task.config.get("data")
+            upload_fs = []
+            if task_data is not None:
+                data_key = "taskdata_{}".format(task.task_id)
+                upload_fs.append(_upload_on_workers(workers, data_key, task_data))
+            placement_key = "placement_{}".format(task.task_id)
+            upload_fs.append(
+                _upload_on_workers(workers, placement_key, json.dumps(self._create_placement_data(task)).encode()))
+            await asyncio.wait(upload_fs)
+
             with tempfile.TemporaryFile() as stdout_file:
                 with tempfile.TemporaryFile() as stderr_file:
                     logger.debug("Starting %s: %s", task, args)
@@ -303,10 +331,18 @@ class Server:
                             task.task_id, exitcode, stdout, stderr)
                         self._task_failed(task, workers, message)
                     else:
+                        # DEBUG
+                        stderr_file.seek(0)
+                        stderr = stderr_file.read().decode()
+                        stdout_file.seek(0)
+                        stdout = stdout_file.read().decode()
+                        logger.info("Task id={} finished.\nStdout:\n{}\nStderr:\n{}\n".format(
+                            task.task_id, stdout, stderr))
                         self._task_finished(task, workers)
         finally:
             if data_key:
                 await _remove_from_workers(workers, data_key)
+            await _remove_from_workers(workers, placement_key)
 
     async def connect_to_ds(self):
         async def connect(hostname, port):

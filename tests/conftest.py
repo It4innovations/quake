@@ -1,12 +1,11 @@
 import logging
 import os
+import socket
 import subprocess
 import sys
+import time
 
 import pytest
-import time
-import socket
-
 
 logging.basicConfig(level=0)
 
@@ -26,7 +25,7 @@ def docker_cluster():
     subprocess.check_call(
         ["docker-compose", "up", "-d", "--scale", "mpi_head=1", "--scale", "mpi_node={}".format(nodes)],
         cwd=DOCKER_DIR)
-    hostnames = tuple(["mpi_head"] + ["mpi_node_{}".format(i) for i in range(1, nodes + 1)])
+    hostnames = tuple(["mpi_head"] + ["docker_mpi_node_{}".format(i) for i in range(1, nodes + 1)])
     yield hostnames
 
     if not no_shutdown:
@@ -38,7 +37,6 @@ cmd_prefix = ["docker-compose", "exec", "-T", "--user", "mpirun", "--privileged"
 
 
 def make_cmds(cmd):
-
     result = [
         cmd_prefix + ["mpi_head"] + cmd
     ]
@@ -60,18 +58,18 @@ def wait_for_port(port):
     s.close()
 
 
-
 @pytest.fixture(scope="function")
 def client(docker_cluster):
     ps = []
-    for cmd in make_cmds(["/bin/bash", "-c", "pgrep python3 | xargs kill; sleep 0.1 ; rm -rf /tmp/data ; python3 -m quake.datasrv /tmp/data"]):
+    for cmd in make_cmds(["/bin/bash", "-c",
+                          "pgrep python3 | xargs kill; sleep 0.1 ; rm -rf /tmp/data ; python3 -m quake.datasrv /tmp/data"]):
         p = subprocess.Popen(cmd, cwd=DOCKER_DIR, stdin=subprocess.DEVNULL)
         ps.append(p)
 
     time.sleep(1.5)
 
     hostnames = ",".join(docker_cluster)
-    #cmd = cmd_prefix + ["mpi_head", "/bin/bash", "-c", "kill `pgrep -f quake.server` ; sleep 0.1; echo 'xxx'; python3 -m quake.server --workers={}".format(hostnames)]
+    # cmd = cmd_prefix + ["mpi_head", "/bin/bash", "-c", "kill `pgrep -f quake.server` ; sleep 0.1; echo 'xxx'; python3 -m quake.server --workers={}".format(hostnames)]
     cmd = cmd_prefix + ["mpi_head", "/bin/bash", "-c", "python3 -m quake.server --workers={}".format(hostnames)]
     print(" ".join(cmd))
     p = subprocess.Popen(cmd, cwd=DOCKER_DIR, stdin=subprocess.DEVNULL)
@@ -82,10 +80,10 @@ def client(docker_cluster):
     client.DEFAULT_ENV = {"PYTHONPATH": "/app:/app/tests"}
 
     # mapped in docker-compose.yml
-    #wait_for_port(7602)
-    #wait_for_port(7603)
-    #wait_for_port(7604)
-    #wait_for_port(7605)
+    # wait_for_port(7602)
+    # wait_for_port(7603)
+    # wait_for_port(7604)
+    # wait_for_port(7605)
 
     yield client
 

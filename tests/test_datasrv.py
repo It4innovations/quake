@@ -1,6 +1,7 @@
 import asyncio
 import subprocess
 import time
+
 import abrpc
 import pytest
 
@@ -10,8 +11,10 @@ def test_data_service(tmpdir, root_dir):
     PORT2 = 15002
     env = {"PYTHONPATH": root_dir}
     ps = []
-    ps.append(subprocess.Popen(["python3", "-m", "quake.datasrv", "--port", str(PORT1), str(tmpdir.join("srv1"))], env=env))
-    ps.append(subprocess.Popen(["python3", "-m", "quake.datasrv", "--port", str(PORT2), str(tmpdir.join("srv2"))], env=env))
+    ps.append(
+        subprocess.Popen(["python3", "-m", "quake.datasrv", "--port", str(PORT1), str(tmpdir.join("srv1"))], env=env))
+    ps.append(
+        subprocess.Popen(["python3", "-m", "quake.datasrv", "--port", str(PORT2), str(tmpdir.join("srv2"))], env=env))
 
     async def main():
         connection1 = abrpc.Connection(await asyncio.open_connection("localhost", PORT1))
@@ -29,28 +32,27 @@ def test_data_service(tmpdir, root_dir):
         c2 = connection2.call("get_data", "x_1", "localhost", PORT1)
         assert [b"123", b"123"] == await asyncio.gather(c1, c2)
 
-        #path1 = await connection2.call("map_to_fs", "x_1")
-        #assert isinstance(path1, str)
-        #path2 = await connection2.call("map_to_fs", "x_1")
-        #assert path2 == path1
+        # path1 = await connection2.call("map_to_fs", "x_1")
+        # assert isinstance(path1, str)
+        # path2 = await connection2.call("map_to_fs", "x_1")
+        # assert path2 == path1
 
         await connection1.call("remove", "x_1")
 
         with pytest.raises(abrpc.RemoteException):
             await connection1.call("get_data", "x_1")
 
-
         s1 = await connection1.call("get_stats")
         s2 = await connection2.call("get_stats")
         assert s1 == {'connections': 0,
                       'obj_data_provided': 2,
                       'obj_fetched': 0,
-                      #'obj_file_provided': 0
-                     }
+                      # 'obj_file_provided': 0
+                      }
         assert s2 == {'connections': 1,
                       'obj_data_provided': 2,
                       'obj_fetched': 1,
-                      #'obj_file_provided': 2
+                      # 'obj_file_provided': 2
                       }
 
         assert b"123" == await connection1.call("get_data", "x_1", "localhost", PORT2)
@@ -61,12 +63,12 @@ def test_data_service(tmpdir, root_dir):
         assert s1 == {'connections': 1,
                       'obj_data_provided': 4,
                       'obj_fetched': 1,
-                      #'obj_file_provided': 0
+                      # 'obj_file_provided': 0
                       }
         assert s2 == {'connections': 1,
                       'obj_data_provided': 3,
                       'obj_fetched': 1,
-                      #'obj_file_provided': 2
+                      # 'obj_file_provided': 2
                       }
 
     try:

@@ -27,6 +27,8 @@ services:
     volumes:
       - ../../:/app
     hostname: mpi_node
+    expose:
+      - 8602
 
 networks:
   net:

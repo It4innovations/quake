@@ -1,6 +1,7 @@
-
 import enum
+
 from ..common.taskinput import TaskInput
+
 
 class TaskState(enum.Enum):
     NEW = 0
@@ -30,5 +31,5 @@ class Task:
             "keep": self.keep,
         }
 
-    def output(self, output_id, layout=None):
+    def output(self, output_id, layout="all_to_all"):
         return TaskInput(self, output_id, layout)

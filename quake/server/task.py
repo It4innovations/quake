@@ -1,5 +1,6 @@
 from quake.common.utils import make_data_name
 
+
 class TaskState:
     UNFINISHED = 1
     FINISHED = 2

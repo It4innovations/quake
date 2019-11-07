@@ -1,10 +1,11 @@
-import logging
-import asyncio
-from .service import Service
-from abrpc import expose, on_connection
 import argparse
+import asyncio
+import logging
 import os
 
+from abrpc import on_connection
+
+from .service import Service
 
 logger = logging.getLogger(__name__)
 

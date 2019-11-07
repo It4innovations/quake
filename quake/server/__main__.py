@@ -1,14 +1,15 @@
 import argparse
 import asyncio
 import logging
-import os
-from abrpc import expose, on_connection
+
+from abrpc import on_connection
+
 from .server import Server
 
 logger = logging.getLogger(__name__)
 
 
-#def get_worker_hostnames():
+# def get_worker_hostnames():
 #    if "QUAKE_WORKERS" not in os.environ:
 #        raise Exception("Set 'QUAKE_WORKERS' env variable")
 #    return os.environ.get("QUAKE_WORKERS").split(",")

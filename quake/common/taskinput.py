@@ -1,6 +1,5 @@
-
-
 class TaskInput:
+    __slots__ = ("task", "output_id", "layout")
 
     def __init__(self, task, output_id: int, layout):
         assert 0 <= output_id < task.n_outputs

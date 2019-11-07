@@ -1,8 +1,8 @@
-
-import logging
 import asyncio
-import uvloop
+import logging
+
 import abrpc
+import uvloop
 
 from .task import Task, TaskState
 
@@ -11,7 +11,6 @@ logger = logging.getLogger(__name__)
 
 
 class Client:
-
     PY_JOB_ARGS = ("python3", "-m", "quake.job", "$TASK_ID", "$RANK", "$DS_PORT")
     DEFAULT_ENV = {}
 
