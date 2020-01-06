@@ -70,7 +70,7 @@ class Job:
         await self.ds_connection.call("upload", name, data)
 
     async def start(self):
-        logger.info("Starting task id=%s", self.task_id)
+        logger.info("Starting task id=%s on rank=%s", self.task_id, self.rank)
 
         await self.connect_to_ds()
         config = await self.download_config()

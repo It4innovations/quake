@@ -28,6 +28,8 @@ class Task:
         self.error = None
         self.placement = None  # placement[output_id][part_id] -> set of workers where is data placed
 
+        self.b_level = None
+
     def make_data_name(self, output_id, part):
         return make_data_name(self.task_id, output_id, part)
 

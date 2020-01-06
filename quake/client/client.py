@@ -66,16 +66,19 @@ class Client:
         loop = asyncio.get_event_loop()
         loop.run_until_complete(self.connection.call("unkeep", task.task_id))
 
-    def submit(self):
-        logger.debug("Submitting %s tasks", len(self.unsubmitted_tasks))
-        if not self.unsubmitted_tasks:
-            return
+    def _prepare_submit(self):
         for task in self.unsubmitted_tasks:
             assert task.state == TaskState.NEW
             task.state = TaskState.SUBMITTED
         tasks = [task.to_dict() for task in self.unsubmitted_tasks]
         self.unsubmitted_tasks = []
-        self.loop.run_until_complete(self.connection.call("submit", tasks))
+        return tasks
+
+    def submit(self):
+        logger.debug("Submitting %s tasks", len(self.unsubmitted_tasks))
+        tasks = self._prepare_submit()
+        if tasks:
+            self.loop.run_until_complete(self.connection.call("submit", tasks))
 
     def wait(self, task):
         logger.debug("Waiting on task id=%s", task.task_id)

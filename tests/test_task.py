@@ -7,7 +7,7 @@ import quake.job
 
 
 def test_task_fail(client):
-    t1 = client.new_task(1, 2, ["ls", "/xxx"])
+    t1 = client.new_task(1, 2, {"type": "mpirun", "args": ["ls", "/xxx"]}, keep=True)
     client.submit()
     with pytest.raises(Exception, match="Task id=. failed."):
         client.wait(t1)

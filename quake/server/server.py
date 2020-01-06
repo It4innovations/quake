@@ -7,7 +7,9 @@ import tempfile
 import abrpc
 import uvloop
 
+from .state import State
 from .task import TaskState, Task
+from .scheduler import compute_b_levels
 from ..common.taskinput import TaskInput
 
 # !!!!!!!!!!!!!!!
@@ -72,15 +74,6 @@ async def _remove_from_workers(workers, name):
     await asyncio.wait(fs)
 
 
-def _check_removal(task):
-    if task.keep or task.consumers:
-        return
-    assert task.state == TaskState.FINISHED
-
-    logger.debug("Removing task %s", task)
-    asyncio.ensure_future(_remove_task(task))
-
-
 class Server:
 
     def __init__(self, worker_hostnames, local_ds_port):
@@ -93,13 +86,7 @@ class Server:
             logger.info("Registering worker worker_id=%s host=%s", i, worker.hostname)
             workers.append(worker)
 
-        # self.id_counter = 0
-
-        self.tasks = {}
-        self.ready_tasks = []
-        self.all_workers = workers
-        self.free_workers = list(workers)
-
+        self.state = State(workers)
         self.processes = {}
         # self.run_prefix = tuple(run_prefix)
         # self.run_cwd = run_cwd
@@ -109,7 +96,7 @@ class Server:
 
     @abrpc.expose()
     async def gather(self, task_id, output_id):
-        task = self.tasks.get(task_id)
+        task = self.state.tasks.get(task_id)
         if task is None:
             raise Exception("Task '{}' not found".format(task_id))
         await _wait_for_task(task)
@@ -120,80 +107,26 @@ class Server:
 
     @abrpc.expose()
     async def wait(self, task_id):
-        task = self.tasks.get(task_id)
+        task = self.state.tasks.get(task_id)
         if task is None:
             raise Exception("Task '{}' not found".format(task_id))
         await _wait_for_task(task)
 
     @abrpc.expose()
     async def unkeep(self, task_id):
-        task = self.tasks.get(task_id)
-        if task is None:
-            raise Exception("Task '{}' not found".format(task_id))
-        if not task.keep:
-            raise Exception("Task '{}' does have 'keep' flag".format(task_id))
-        task.keep = False
-        if task.state == TaskState.UNFINISHED:
-            # Do nothing
-            return
-        elif task.state == TaskState.FINISHED:
-            _check_removal(task)
-            return
-        elif task.state == TaskState.ERROR:
-            raise Exception(task.error)
-        else:
-            assert 0
+        tasks_to_remove = self.state.unkeep(task_id)
+        if tasks_to_remove:
+            for task in tasks_to_remove:
+                asyncio.ensure_future(_remove_task(task))
 
     @abrpc.expose()
     async def submit(self, tasks):
-        new_ready_tasks = False
-        new_tasks = set()
-
-        task_map = self.tasks
-        for tdict in tasks:
-            task_id = tdict["task_id"]
-            if task_id in task_map:
-                raise Exception("Task id ({}) already used".format(task_id))
-
-        for tdict in tasks:
-            task_id = tdict["task_id"]
-            task = Task(task_id, tdict["n_outputs"], tdict["n_workers"], tdict["config"], tdict["keep"])
-            logger.debug("Task %s submitted", task_id)
-            task_map[task_id] = task
-            new_tasks.add(task)
-            tdict["_task"] = task
-
-        for tdict in tasks:
-            task = tdict["_task"]
-            unfinished_deps = 0
-            inputs = [TaskInput.from_dict(data, task_map) for data in tdict["inputs"]]
-            deps = frozenset(inp.task for inp in inputs)
-            for t in deps:
-                assert t.state != TaskState.RELEASED
-                assert t.keep or t in new_tasks, "Dependency on not-keep task"
-                t.consumers.add(task)
-                if not t.state == TaskState.FINISHED:
-                    unfinished_deps += 1
-            task.inputs = inputs
-            task.deps = deps
-            task.unfinished_deps = unfinished_deps
-            if not unfinished_deps:
-                new_ready_tasks = True
-                logger.debug("Task %s is ready", task)
-                self.ready_tasks.append(task)
-
-        if new_ready_tasks:
+        if self.state.add_tasks(tasks):
             self.schedule()
 
     def schedule(self):
-        logger.debug("Scheduling ... top_3_tasks: %s", self.ready_tasks[:3])
-        for task in self.ready_tasks[:]:
-            if task.n_workers <= len(self.free_workers):
-                workers = self.free_workers[:task.n_workers]
-                del self.free_workers[:task.n_workers]
-                self.ready_tasks.remove(task)
-                self._start_task(task, workers)
-        logger.debug("End of scheduling")
+        for task, workers in self.state.schedule():
+            self._start_task(task, workers)
 
     def _start_task(self, task, workers):
         logger.debug("Starting task %s on %s", task, workers)
@@ -240,36 +173,14 @@ class Server:
             raise Exception("Invalid task type")
 
     def _task_failed(self, task, workers, message):
-        logger.error("Task %s FAILED: %s", task, message)
-        task.set_error(message)
-        for inp in task.inputs:
-            if task in inp.task.consumers:
-                inp.task.consumers.remove(task)
-        _check_removal(task)
-        for t in task.recursive_consumers():
-            if t.state == TaskState.UNFINISHED:
-                t.set_error(message)
-        self.free_workers.extend(workers)
+        for task in self.state.on_task_failed(task, workers, message):
+            asyncio.ensure_future(_remove_task(task))
         self.schedule()
 
     def _task_finished(self, task, workers):
-        logger.debug("Task %s finished", task)
-        task.set_finished(workers)
-        new_ready_tasks = False
-        for inp in task.inputs:
-            if task in inp.task.consumers:
-                inp.task.consumers.remove(task)
-        _check_removal(task)
-        for t in task.consumers:
-            t.unfinished_deps -= 1
-            if t.unfinished_deps <= 0:
-                assert t.unfinished_deps == 0
-                logger.debug("Task %s is ready", t)
-                self.ready_tasks.append(t)
-                new_ready_tasks = True
-        self.free_workers.extend(workers)
-        if new_ready_tasks:
-            self.schedule()
+        for task in self.state.on_task_finished(task, workers):
+            asyncio.ensure_future(_remove_task(task))
+        self.schedule()
 
     async def _upload(self, task, workers):
         parts = task.config["data"]
@@ -350,9 +261,9 @@ class Server:
             asyncio.ensure_future(connection.serve())
             return connection
 
-        fs = [connect(w.hostname, self.ds_port) for w in self.all_workers]
+        fs = [connect(w.hostname, self.ds_port) for w in self.state.all_workers]
         connections = await asyncio.gather(*fs)
 
-        for w, c in zip(self.all_workers, connections):
+        for w, c in zip(self.state.all_workers, connections):
             w.ds_connection = c
         self.local_ds_connection = connections[0]
