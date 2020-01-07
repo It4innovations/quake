@@ -14,11 +14,9 @@ def test_task_fail(client):
 
 
 def test_simple_mpi_task(client):
-    t1 = client.new_mpirun_task(1, 2, ["ls", "/"], keep=True)
-    t2 = client.new_mpirun_task(1, 2, ["ls", "/"], keep=False, inputs=[t1.output(0)])
-    t3 = client.new_mpirun_task(1, 2, ["ls", "/"], keep=True, inputs=[t2.output(0)])
+    t1 = client.new_mpirun_task(0, 2, ["ls", "/"], keep=True)
     client.submit()
-    client.wait(t3)
+    client.wait(t1)
 
 
 def test_upload_download(client):

@@ -7,6 +7,7 @@ import random
 
 import abrpc
 
+from quake.common.layout import Layout
 from quake.common.utils import make_data_name
 
 logger = logging.getLogger(__name__)
@@ -70,7 +71,8 @@ class Job:
         await self.ds_connection.call("upload", name, data)
 
     async def start(self):
-        logger.info("Starting task id=%s on rank=%s", self.task_id, self.rank)
+        rank = self.rank
+        logger.info("Starting task id=%s on rank=%s", self.task_id, rank)
 
         await self.connect_to_ds()
         config = await self.download_config()
@@ -81,12 +83,14 @@ class Job:
         fs = []
         for inp_dict in inputs:
             # TODO: Other layouts
-            assert inp_dict["layout"] == "all_to_all"
-            parts = range(inp_dict["n_parts"])
-            fs.append(self.download_input(inp_dict["task_id"], inp_dict["output_id"], parts))
+            layout = Layout.deserialize(inp_dict["layout"])
+            fs.append(self.download_input(
+                inp_dict["task_id"],
+                inp_dict["output_id"],
+                layout.iterate(rank)))
 
         input_data = await asyncio.gather(*fs)
-        jctx = JobContext(self.rank, input_data)
+        jctx = JobContext(rank, input_data)
         output = config.fn(jctx, input_data)
         assert len(output) == config.n_outputs
 

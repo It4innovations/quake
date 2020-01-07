@@ -24,9 +24,9 @@ class Task:
         self.unfinished_deps = None
         self.consumers = set()
         self.events = None
-        self.events = None
         self.error = None
         self.placement = None  # placement[output_id][part_id] -> set of workers where is data placed
+        self.sizes = None  # sizes[output_id][part_id] -> sizes of data parts
 
         self.b_level = None
 
@@ -41,7 +41,7 @@ class Task:
             for t in task.consumers:
                 if t not in tasks:
                     stack.append(t)
-                    tasks.append(t)
+                    tasks.add(t)
         return tasks
 
     def add_event(self, event):
@@ -65,16 +65,28 @@ class Task:
     def is_ready(self):
         return self.unfinished_deps == 0
 
-    def set_finished(self, workers):
+    def set_finished(self, workers, sizes):
         assert self.state == TaskState.UNFINISHED
         assert len(workers) == self.n_workers
+        assert len(sizes) == self.n_outputs
+        assert not sizes or len(sizes[0]) == self.n_workers
+
         self.state = TaskState.FINISHED
         self.placement = [[{w} for w in workers] for _ in range(self.n_outputs)]
+        self.sizes = sizes
         self._fire_events()
+
+    def _fake_finish(self, placement, sizes):
+        self.placement = placement
+        self.sizes = sizes
+        self.state = TaskState.FINISHED
 
     def set_released(self):
         assert self.state == TaskState.FINISHED
         self.state = TaskState.RELEASED
+        self.placement = None
+        self.consumers = None
+        self.sizes = None
 
     def __repr__(self):
         return "<Task id={} w={}>".format(self.task_id, self.n_workers)

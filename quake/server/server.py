@@ -57,9 +57,15 @@ async def _wait_for_task(task):
 
 async def _remove_task(task):
     fs = []
+
+    # The ordering of two following calls is important!
+    placement = task.placement
+    task.set_released()
+
     for output_id in range(task.n_outputs):
         for part in range(task.n_workers):
-            fs.append(_remove_from_workers(task.placement[output_id][part], task.make_data_name(output_id, part)))
+            fs.append(_remove_from_workers(placement[output_id][part], task.make_data_name(output_id, part)))
+
     await asyncio.gather(*fs)
     logger.debug("All parts of task %s was removed (%s calls)", task, len(fs))
 
@@ -74,6 +80,16 @@ async def _remove_from_workers(workers, name):
     await asyncio.wait(fs)
 
 
+async def _download_sizes(task, workers):
+    fs = [w.ds_connection.call("get_sizes", [task.make_data_name(output_id, part_id) for output_id in range(task.n_outputs)])
+          for part_id, w in enumerate(workers)]
+    sizes = await asyncio.gather(*fs)
+    return [
+        [sizes[part_id][output_id] for part_id in range(task.n_workers)]
+        for output_id in range(task.n_outputs)
+    ]
+
+
 class Server:
 
     def __init__(self, worker_hostnames, local_ds_port):
@@ -81,8 +97,7 @@ class Server:
 
         workers = []
         for i, hostname in enumerate(worker_hostnames):
-            worker = Worker(hostname)
-            worker.worker_id = i
+            worker = Worker(i, hostname)
             logger.info("Registering worker worker_id=%s host=%s", i, worker.hostname)
             workers.append(worker)
 
@@ -177,8 +192,8 @@ class Server:
             asyncio.ensure_future(_remove_task(task))
         self.schedule()
 
-    def _task_finished(self, task, workers):
-        for task in self.state.on_task_finished(task, workers):
+    def _task_finished(self, task, workers, sizes):
+        for task in self.state.on_task_finished(task, workers, sizes):
             asyncio.ensure_future(_remove_task(task))
         self.schedule()
 
@@ -188,7 +203,7 @@ class Server:
             fs = [workers[i].ds_connection.call("upload", task.make_data_name(0, i), data)
                   for i, data in enumerate(parts)]
             await asyncio.wait(fs)
-            self._task_finished(task, workers)
+            self._task_finished(task, workers, [[len(data) for data in parts]])
         except Exception as e:
             logger.error(e)
             self._task_failed(task, workers, "Upload failed: " + str(e))
@@ -204,7 +219,7 @@ class Server:
             {"task_id": inp.task.task_id,
              "output_id": inp.output_id,
              "n_parts": inp.task.n_workers,
-             "layout": inp.layout}
+             "layout": inp.layout.serialize()}
             for inp in task.inputs
         ]
 
@@ -249,7 +264,9 @@ class Server:
                         stdout = stdout_file.read().decode()
                         logger.info("Task id={} finished.\nStdout:\n{}\nStderr:\n{}\n".format(
                             task.task_id, stdout, stderr))
-                        self._task_finished(task, workers)
+                        sizes = await _download_sizes(task, workers)
+                        logger.debug("Sizes of task=%s downloaded sizes=%s", task.task_id, sizes)
+                        self._task_finished(task, workers, sizes)
         finally:
             if data_key:
                 await _remove_from_workers(workers, data_key)

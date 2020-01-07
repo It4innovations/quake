@@ -15,13 +15,59 @@ def _check_removal(task, tasks_to_remove):
     tasks_to_remove.append(task)
 
 
+def _task_b_level(task):
+    return task.b_level
+
+
+def _release_task(task, tasks_to_remove):
+    for inp in task.inputs:
+        t = inp.task
+        if task in t.consumers:
+            t.consumers.remove(task)
+            _check_removal(t, tasks_to_remove)
+    _check_removal(task, tasks_to_remove)
+
+
+def _transfer_costs(task, part_id, worker):
+    cost = 0
+    for inp in task.inputs:
+        t = inp.task
+        placement = t.placement[inp.output_id]
+        sizes = t.sizes[inp.output_id]
+        for i in inp.layout.iterate(part_id):
+            if worker not in placement[i]:
+                cost += sizes[i]
+    return cost
+
+
+def _update_placement(task, workers):
+    for inp in task.inputs:
+        t = inp.task
+        placement = t.placement[inp.output_id]
+        for rank in range(t.n_workers):
+            worker = workers[rank]
+            for i in inp.layout.iterate(rank):
+                placement[i].add(worker)
+
+
+def _choose_workers(task, workers):
+    result = []
+    workers = workers.copy()
+    for part_id in range(task.n_workers):
+        worker = min(workers, key=lambda w: _transfer_costs(task, part_id, w))
+        workers.remove(worker)
+        result.append(worker)
+    return result
+
+
 class State:
 
     def __init__(self, workers):
         self.tasks = {}
         self.ready_tasks = []
         self.all_workers = workers
-        self.free_workers = list(workers)
+        self.free_workers = set(workers)
+        self.need_sort = False
 
     def add_tasks(self, serialized_tasks):
         new_ready_tasks = False
@@ -45,7 +91,7 @@ class State:
             task = tdict["_task"]
             unfinished_deps = 0
             inputs = [TaskInput.from_dict(data, task_map) for data in tdict["inputs"]]
-            deps = frozenset(inp.task for inp in inputs)
+            deps = tuple(frozenset(inp.task for inp in inputs))
             for t in deps:
                 assert t.state != TaskState.RELEASED
                 assert t.keep or t in new_tasks, "Dependency on not-keep task"
@@ -60,50 +106,66 @@ class State:
                 logger.debug("Task %s is ready", task)
                 self.ready_tasks.append(task)
 
+        self.need_sort |= new_ready_tasks
         compute_b_levels(task_map)
         return new_ready_tasks
 
-    def schedule(self):
-        logger.debug("Scheduling ... top_3_tasks: %s", self.ready_tasks[:3])
-        for task in self.ready_tasks[:]:
-            if task.n_workers <= len(self.free_workers):
-                workers = self.free_workers[:task.n_workers]
-                del self.free_workers[:task.n_workers]
-                self.ready_tasks.remove(task)
-                yield task, workers
-        logger.debug("End of scheduling")
-
-    def _release_task(self, task, tasks_to_remove):
-        for inp in task.inputs:
-            t = inp.task
-            if task in t.consumers:
-                t.consumers.remove(task)
-                _check_removal(t, tasks_to_remove)
-        _check_removal(task, tasks_to_remove)
-
-    def on_task_failed(self, task, workers, message):
-        logger.error("Task %s FAILED: %s", task, message)
-        task.set_error(message)
-        tasks_to_remove = []
-        self._release_task(task, tasks_to_remove)
-        for t in task.recursive_consumers():
-            if t.state == TaskState.UNFINISHED:
-                t.set_error(message)
-        self.free_workers.extend(workers)
-        return tasks_to_remove
-
-    def on_task_finished(self, task, workers):
-        logger.debug("Task %s finished", task)
-        task.set_finished(workers)
-        tasks_to_remove = []
-        self._release_task(task, tasks_to_remove)
+    def _fake_placement(self, task, placement, sizes):
+        task._fake_finish(placement, sizes)
+        if task in self.ready_tasks:
+            self.ready_tasks.remove(task)
         for t in task.consumers:
             t.unfinished_deps -= 1
             if t.unfinished_deps <= 0:
                 assert t.unfinished_deps == 0
                 logger.debug("Task %s is ready", t)
                 self.ready_tasks.append(t)
-        self.free_workers.extend(workers)
+                self.need_sort = True
+
+    def schedule(self):
+        if self.need_sort:
+            self.ready_tasks.sort(key=_task_b_level)
+        logger.debug("Scheduling ... top_3_tasks: %s", self.ready_tasks[:3])
+
+        free_workers = self.free_workers
+        for idx in range(len(self.ready_tasks) - 1, -1, -1):
+            task = self.ready_tasks[idx]
+            if task.n_workers <= len(free_workers):
+                workers = _choose_workers(task, free_workers)
+                for worker in workers:
+                    free_workers.remove(worker)
+                del self.ready_tasks[idx]
+                yield task, workers
+                if not free_workers:
+                    break
+
+        logger.debug("End of scheduling")
+
+    def on_task_failed(self, task, workers, message):
+        # TODO: Remove inputs that was downloaded for execution but they are not in placement
+        logger.error("Task %s FAILED: %s", task, message)
+        task.set_error(message)
+        tasks_to_remove = []
+        _release_task(task, tasks_to_remove)
+        for t in task.recursive_consumers():
+            if t.state == TaskState.UNFINISHED:
+                t.set_error(message)
+        self.free_workers.update(workers)
+        return tasks_to_remove
+
+    def on_task_finished(self, task, workers, sizes):
+        logger.debug("Task %s finished", task)
+        task.set_finished(workers, sizes)
+        tasks_to_remove = []
+        _release_task(task, tasks_to_remove)
+        for t in task.consumers:
+            t.unfinished_deps -= 1
+            if t.unfinished_deps <= 0:
+                assert t.unfinished_deps == 0
+                logger.debug("Task %s is ready", t)
+                self.ready_tasks.append(t)
+                self.need_sort = True
+        self.free_workers.update(workers)
         return tasks_to_remove
 
     def unkeep(self, task_id):

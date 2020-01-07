@@ -22,7 +22,6 @@ class Service:
 
         self.stats_obj_fetched = 0
         self.stats_obj_data_provided = 0
-        # self.stats_obj_file_provided = 0
 
     async def _serve(self, connection, hostname, port):
         await connection.serve()
@@ -86,6 +85,16 @@ class Service:
         #    raise Exception("Object removed")
         # return data
 
+    @expose()
+    async def get_sizes(self, names):
+        result = []
+        for name in names:
+            f_obj = self.objects.get(name)
+            if f_obj is None:
+                result.append(None)
+                continue
+            result.append((await f_obj).size)
+        return result
     """
     @expose()
     async def map_to_fs(self, name, hostname=None, port=None):
@@ -103,10 +112,9 @@ class Service:
     async def remove(self, name):
         obj_f = self.objects.get(name)
         if obj_f is None:
-            raise Exception("Object not found")
+            return False
         del self.objects[name]
-        # obj = await obj_f
-        # await obj.remove()
+        return True
 
     @expose()
     async def get_stats(self):

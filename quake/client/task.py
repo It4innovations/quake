@@ -1,6 +1,7 @@
 import enum
 
 from ..common.taskinput import TaskInput
+from ..common.layout import Layout
 
 
 class TaskState(enum.Enum):
@@ -32,4 +33,10 @@ class Task:
         }
 
     def output(self, output_id, layout="all_to_all"):
+        if layout == "all_to_all":
+            layout = Layout(self.n_workers, 0, 0, 0, self.n_workers)
+        elif layout == "cycle":
+            layout = Layout(self.n_workers, 1, 0, 0, 1)
+        else:
+            assert isinstance(layout, Layout)
         return TaskInput(self, output_id, layout)

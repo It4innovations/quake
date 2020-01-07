@@ -18,8 +18,8 @@ class Client:
         self.connection = None
         self.unsubmitted_tasks = []
         self.loop = asyncio.get_event_loop()
-        self._connect(hostname, port)
         self.id_counter = 0
+        self._connect(hostname, port)
 
     def _connect(self, hostname, port):
         async def connect():
