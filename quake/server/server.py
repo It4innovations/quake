@@ -211,13 +211,14 @@ class Server:
     def _create_placement_data(self, task):
         placements = {}
         for inp in task.inputs:
-            p = inp.task.placement[inp.output_id]
-            for i in range(inp.task.n_workers):
-                name = inp.task.make_data_name(inp.output_id, i)
-                placements[name] = [(w.hostname, self.ds_port) for w in p[i]]
+            for output_id in inp.output_ids:
+                p = inp.task.placement[output_id]
+                for i in range(inp.task.n_workers):
+                    name = inp.task.make_data_name(output_id, i)
+                    placements[name] = [(w.hostname, self.ds_port) for w in p[i]]
         inputs = [
             {"task_id": inp.task.task_id,
-             "output_id": inp.output_id,
+             "output_ids": inp.output_ids,
              "n_parts": inp.task.n_workers,
              "layout": inp.layout.serialize()}
             for inp in task.inputs

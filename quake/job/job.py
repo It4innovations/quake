@@ -61,10 +61,10 @@ class Job:
         data = await self.download_object("placement_{}".format(self.task_id))
         return json.loads(data.decode())
 
-    async def download_input(self, task_id, output_id, parts):
+    async def download_input(self, task_id, pairs):
         return await asyncio.gather(
             *[self.download_object(make_data_name(task_id, output_id, part))
-              for part in parts])
+              for output_id, part in pairs])
 
     async def upload_data(self, output_id, data):
         name = make_data_name(self.task_id, output_id, self.rank)
@@ -86,8 +86,7 @@ class Job:
             layout = Layout.deserialize(inp_dict["layout"])
             fs.append(self.download_input(
                 inp_dict["task_id"],
-                inp_dict["output_id"],
-                layout.iterate(rank)))
+                layout.iterate(rank, inp_dict["output_ids"], inp_dict["n_parts"])))
 
         input_data = await asyncio.gather(*fs)
         jctx = JobContext(rank, input_data)

@@ -32,22 +32,23 @@ def _transfer_costs(task, part_id, worker):
     cost = 0
     for inp in task.inputs:
         t = inp.task
-        placement = t.placement[inp.output_id]
-        sizes = t.sizes[inp.output_id]
-        for i in inp.layout.iterate(part_id):
-            if worker not in placement[i]:
-                cost += sizes[i]
+        placement = t.placement
+        sizes = t.sizes
+        for i, j in inp.layout.iterate(part_id, inp.output_ids, t.n_workers):
+            if worker not in placement[i][j]:
+                cost += sizes[i][j]
     return cost
 
 
 def _update_placement(task, workers):
     for inp in task.inputs:
         t = inp.task
-        placement = t.placement[inp.output_id]
+        output_ids = inp.output_ids
+        n_parts = t.n_workers
         for rank in range(t.n_workers):
             worker = workers[rank]
-            for i in inp.layout.iterate(rank):
-                placement[i].add(worker)
+            for i, j in inp.layout.iterate(rank, inp.output_ids, output_ids, n_parts):
+                t.placement[i][j].add(worker)
 
 
 def _choose_workers(task, workers):
