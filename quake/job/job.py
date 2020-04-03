@@ -90,7 +90,7 @@ class Job:
 
         input_data = await asyncio.gather(*fs)
         jctx = JobContext(rank, input_data)
-        output = config.fn(jctx, input_data)
+        output = config.fn(jctx, input_data, config.payload)
         assert len(output) == config.n_outputs
 
         for i, data in enumerate(output):

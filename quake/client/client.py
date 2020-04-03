@@ -11,12 +11,10 @@ logger = logging.getLogger(__name__)
 
 
 class Client:
-    PY_JOB_ARGS = ("python3", "-m", "quake.job", "$TASK_ID", "$RANK", "$DS_PORT")
     DEFAULT_ENV = {}
 
     def __init__(self, hostname="localhost", port=8600):
         self.connection = None
-        self.unsubmitted_tasks = []
         self.loop = asyncio.get_event_loop()
         self.id_counter = 0
         self._connect(hostname, port)
@@ -31,59 +29,35 @@ class Client:
         logger.info("Connecting to server ...")
         self.connection = self.loop.run_until_complete(connect())
 
-    def new_task(self, n_outputs, n_workers, config, keep=False, inputs=()):
-        task = Task(self.id_counter, n_outputs, n_workers, config, keep, inputs)
-        self.id_counter += 1
-        self.unsubmitted_tasks.append(task)
-        return task
-
-    def new_mpirun_task(self, n_outputs, n_workers, args, keep=False, task_data=None, inputs=()):
-        config = {
-            "type": "mpirun",
-            "args": args,
-            "env": self.DEFAULT_ENV
-        }
-        if task_data is not None:
-            assert isinstance(task_data, bytes)
-            config["data"] = task_data
-        return self.new_task(n_outputs, n_workers, config, keep, inputs)
-
-    def new_py_task(self, n_outputs, n_workers, keep=False, task_data=None, inputs=()):
-        return self.new_mpirun_task(n_outputs, n_workers, self.PY_JOB_ARGS, keep, task_data, inputs)
-
-    def upload_data(self, data, keep=False):
-        assert isinstance(data, list)
-        for d in data:
-            assert isinstance(d, bytes)
-        config = {
-            "type": "upload",
-            "data": data,
-        }
-        return self.new_task(1, len(data), config, keep, ())
-
     def unkeep(self, task):
         logger.debug("Unkeeping id=%s", task.task_id)
         loop = asyncio.get_event_loop()
         loop.run_until_complete(self.connection.call("unkeep", task.task_id))
 
-    def _prepare_submit(self):
-        for task in self.unsubmitted_tasks:
+    def _prepare_submit(self, tasks):
+        for task in tasks:
             assert task.state == TaskState.NEW
             task.state = TaskState.SUBMITTED
-        tasks = [task.to_dict() for task in self.unsubmitted_tasks]
-        self.unsubmitted_tasks = []
-        return tasks
+            task.task_id = self.id_counter
+            self.id_counter += 1
+        return [task.to_dict() for task in tasks]
 
-    def submit(self):
-        logger.debug("Submitting %s tasks", len(self.unsubmitted_tasks))
-        tasks = self._prepare_submit()
-        if tasks:
-            self.loop.run_until_complete(self.connection.call("submit", tasks))
+    def submit(self, tasks):
+        logger.debug("Submitting %s tasks", len(tasks))
+        serialized_tasks = self._prepare_submit(tasks)
+        if serialized_tasks:
+            self.loop.run_until_complete(self.connection.call("submit", serialized_tasks))
 
     def wait(self, task):
         logger.debug("Waiting on task id=%s", task.task_id)
         loop = asyncio.get_event_loop()
         loop.run_until_complete(self.connection.call("wait", task.task_id))
+
+    def wait_all(self, tasks):
+        ids = [task.task_id for task in tasks]
+        logger.debug("Waiting on tasks %s", ids)
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(self.connection.call("wait_all", ids))
 
     def gather(self, task, output_id):
         logger.debug("Gathering task id=%s", task.task_id)

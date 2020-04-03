@@ -44,3 +44,35 @@ class Task:
         else:
             assert isinstance(layout, Layout)
         return TaskInput(self, output_ids, layout)
+
+
+DEFAULT_ENV = {}
+PY_JOB_ARGS = ("python3", "-m", "quake.job", "$TASK_ID", "$RANK", "$DS_PORT")
+
+
+def new_mpirun_task(n_outputs, n_workers, args, keep=False, task_data=None, inputs=()):
+    config = {
+        "type": "mpirun",
+        "args": args,
+        "env": DEFAULT_ENV
+    }
+    if task_data is not None:
+        assert isinstance(task_data, bytes)
+        config["data"] = task_data
+    return Task(None, n_outputs, n_workers, config, keep, inputs)
+
+
+def new_py_task(n_outputs, n_workers, keep=False, task_data=None, inputs=()):
+    return new_mpirun_task(n_outputs, n_workers, PY_JOB_ARGS, keep, task_data, inputs)
+
+
+def upload_data(data, keep=False):
+    assert isinstance(data, list)
+    for d in data:
+        assert isinstance(d, bytes)
+    config = {
+        "type": "upload",
+        "data": data,
+    }
+    return self.new_task(1, len(data), config, keep, ())
+

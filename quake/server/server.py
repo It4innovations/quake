@@ -128,6 +128,16 @@ class Server:
         await _wait_for_task(task)
 
     @abrpc.expose()
+    async def wait_all(self, task_ids):
+        fs = []
+        for task_id in task_ids:
+            task = self.state.tasks.get(task_id)
+            if task is None:
+                raise Exception("Task '{}' not found".format(task_id))
+            fs.append(_wait_for_task(task))
+        await asyncio.wait(fs)
+
+    @abrpc.expose()
     async def unkeep(self, task_id):
         tasks_to_remove = self.state.unkeep(task_id)
         if tasks_to_remove:

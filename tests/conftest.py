@@ -16,6 +16,7 @@ ROOT_DIR = os.path.dirname(TESTS_DIR)
 sys.path.insert(0, ROOT_DIR)
 
 from quake.client import Client  # noqa
+from quake.client.functions import reset_global_plan, set_global_client  # noqa
 
 
 @pytest.fixture(scope="session")
@@ -85,7 +86,13 @@ def client(docker_cluster):
     # wait_for_port(7604)
     # wait_for_port(7605)
 
+    reset_global_plan()
+    set_global_client(None)
+
     yield client
+
+    reset_global_plan()
+    set_global_client(None)
 
     print("Clean up")
     for p in ps:

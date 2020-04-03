@@ -1,2 +1,3 @@
+cloudpickle
 uvloop
 mpi4py
