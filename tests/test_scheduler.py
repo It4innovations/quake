@@ -1,7 +1,4 @@
-
-import pytest
-
-from quake.client.task import Task
+from quake.client.base.task import Task
 
 
 # TX[CPUS, Outputs]
@@ -99,7 +96,7 @@ def test_greedy_match():
     t1 = Task(1, 1, 3, None, False, [])
     t2 = Task(2, 1, 1, None, False, [])
     t3 = Task(3, 1, 2, None, False, [])
-    t4 = Task(4, 0, 3, None, False, [t1.output(0, "cycle"), t2.output(0, "all_to_all"), t3.output(0, "cycle")])
+    t4 = Task(4, 0, 3, None, False, [t1.output(0, "scatter"), t2.output(0, "all_to_all"), t3.output(0, "scatter")])
     workers = make_workers(4)
     state = State(workers)
     state.add_tasks([t.to_dict() for t in [t1, t2, t3, t4]])

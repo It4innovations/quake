@@ -3,7 +3,6 @@ version: "2"
 services:
   mpi_head:
     build: .
-    # image: openmpi
     environment:
       - PYTHONPATH=/app
     ports:
@@ -19,7 +18,6 @@ services:
 
   mpi_node:
     build: .
-    # image: openmpi
     environment:
       - PYTHONPATH=/app
     networks:

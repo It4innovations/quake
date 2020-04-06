@@ -4,6 +4,8 @@ def compute_b_levels(tasks):
     stack = []
     to_compute = {}
     for task in tasks.values():
+        if task.consumers is None:
+            continue
         c = len(task.consumers)
         to_compute[task] = c
         if c == 0:

@@ -1,13 +1,12 @@
 import enum
 
-from ..common.taskinput import TaskInput
-from ..common.layout import Layout
+from quake.common.taskinput import TaskInput
+from quake.common.layout import Layout
 
 
 class TaskState(enum.Enum):
     NEW = 0
     SUBMITTED = 1
-    REMOVED = 2
 
 
 class Task:
@@ -32,21 +31,22 @@ class Task:
             "keep": self.keep,
         }
 
-    def output(self, output_ids="all", layout="all_to_all"):
-        if isinstance(output_ids, int):
-            output_ids = [output_ids]
-        elif output_ids == "all":
-            output_ids = list(range(self.n_outputs))
-        if layout == "all_to_all":
-            layout = Layout(0, 0, 0, self.n_workers * len(output_ids))
-        elif layout == "cycle":
-            layout = Layout(1, 0, 0, 1)
-        else:
-            assert isinstance(layout, Layout)
-        return TaskInput(self, output_ids, layout)
+
+def make_input(task, output_ids="all", layout="all_to_all"):
+    if isinstance(output_ids, int):
+        output_ids = [output_ids]
+    elif output_ids == "all":
+        output_ids = list(range(task.n_outputs))
+    if layout == "all_to_all":
+        layout = Layout(0, 0, 0, task.n_workers * len(output_ids))
+    elif layout == "scatter":
+        layout = Layout(1, 0, 0, 1)
+    else:
+        assert isinstance(layout, Layout)
+    return TaskInput(task, output_ids, layout)
 
 
-DEFAULT_ENV = {}
+DEFAULT_ENV = {"PYTHONPATH": None}  # None = use server value if possible
 PY_JOB_ARGS = ("python3", "-m", "quake.job", "$TASK_ID", "$RANK", "$DS_PORT")
 
 

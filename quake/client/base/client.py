@@ -4,7 +4,7 @@ import logging
 import abrpc
 import uvloop
 
-from .task import Task, TaskState
+from quake.client.base.task import TaskState
 
 uvloop.install()
 logger = logging.getLogger(__name__)
@@ -29,10 +29,18 @@ class Client:
         logger.info("Connecting to server ...")
         self.connection = self.loop.run_until_complete(connect())
 
-    def unkeep(self, task):
+    def remove(self, task):
         logger.debug("Unkeeping id=%s", task.task_id)
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(self.connection.call("unkeep", task.task_id))
+        if not task.keep:
+            raise Exception("'keep' flag is not set for task")
+        if task.state == TaskState.NEW:
+            pass  # Do nothing
+        elif task.state == TaskState.SUBMITTED:
+            loop = asyncio.get_event_loop()
+            loop.run_until_complete(self.connection.call("unkeep", task.task_id))
+        else:
+            raise Exception("Invalid task state")
+        task.keep = False
 
     def _prepare_submit(self, tasks):
         for task in tasks:
@@ -59,7 +67,7 @@ class Client:
         loop = asyncio.get_event_loop()
         loop.run_until_complete(self.connection.call("wait_all", ids))
 
-    def gather(self, task, output_id):
+    def gather(self, task, output_id=None):
         logger.debug("Gathering task id=%s", task.task_id)
         loop = asyncio.get_event_loop()
         return loop.run_until_complete(self.connection.call("gather", task.task_id, output_id))

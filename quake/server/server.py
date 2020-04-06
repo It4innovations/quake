@@ -3,6 +3,7 @@ import json
 import logging
 import random
 import tempfile
+import os
 
 import abrpc
 import uvloop
@@ -39,15 +40,13 @@ from .worker import Worker
 
 
 async def _wait_for_task(task):
-    if not task.keep:
-        raise Exception("Waiting on non-keep tasks are not allowed (task={})".format(task))
     state = task.state
     if task.state == TaskState.UNFINISHED:
         event = asyncio.Event()
         task.add_event(event)
         await event.wait()
         state = task.state
-    if state == TaskState.FINISHED:
+    if state == TaskState.FINISHED or state == TaskState.RELEASED:
         return
     elif task.state == TaskState.ERROR:
         raise Exception(task.error)
@@ -109,16 +108,24 @@ class Server:
         self.local_ds_connection = None
         self.ds_port = local_ds_port
 
+    @staticmethod
+    async def _gather_output(task, output_id):
+        workers = [random.choice(tuple(ws)) for ws in task.placement[output_id]]
+        assert len(workers) == task.n_workers
+        fs = [w.ds_connection.call("get_data", task.make_data_name(output_id, i)) for i, w in enumerate(workers)]
+        return await asyncio.gather(*fs)
+
     @abrpc.expose()
     async def gather(self, task_id, output_id):
         task = self.state.tasks.get(task_id)
         if task is None:
             raise Exception("Task '{}' not found".format(task_id))
         await _wait_for_task(task)
-        workers = [random.choice(tuple(ws)) for ws in task.placement[output_id]]
-        assert len(workers) == task.n_workers
-        fs = [w.ds_connection.call("get_data", task.make_data_name(output_id, i)) for i, w in enumerate(workers)]
-        return await asyncio.gather(*fs)
+        if output_id is None:
+            fs = [self._gather_output(task, output_id) for output_id in range(task.n_outputs)]
+            return await asyncio.gather(*fs)
+        else:
+            return await self._gather_output(task, output_id)
 
     @abrpc.expose()
     async def wait(self, task_id):
@@ -182,6 +189,10 @@ class Server:
                 args.append(worker.hostname)
                 if "env" in task.config:
                     for name, value in task.config["env"].items():
+                        if value is None:
+                            value = os.environ.get(name)
+                            if value is None:
+                                continue
                         args.append("-x")
                         args.append("{}={}".format(name, value))
                 for arg in config_args:
