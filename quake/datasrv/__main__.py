@@ -17,17 +17,15 @@ def parse_args():
     return parser.parse_args()
 
 
-def main():
-    logging.basicConfig(level=logging.DEBUG)
-    args = parse_args()
-    service = Service(args.workdir)
-    logger.info("Starting data service on port %s", args.port)
+def run_data_service(workdir, port):
+    service = Service(workdir)
+    logger.info("Starting data service on port %s", port)
 
-    logger.info("Working directory is: %s", args.workdir)
-    os.makedirs(args.workdir)
+    logger.info("Working directory is: %s", workdir)
+    os.makedirs(workdir, exist_ok=True)
 
-    if os.listdir(args.workdir):
-        raise Exception("Working directory '{}' is not empty".format(args.workdir))
+    if os.listdir(workdir):
+        raise Exception("Working directory '{}' is not empty".format(workdir))
 
     async def handle(conn):
         logger.info("New connection %s", conn)
@@ -36,8 +34,14 @@ def main():
 
     loop = asyncio.get_event_loop()
     loop.run_until_complete(
-        asyncio.start_server(on_connection(handle), port=args.port))
+        asyncio.start_server(on_connection(handle), host="0.0.0.0", port=port))
     loop.run_forever()
+
+
+def main():
+    logging.basicConfig(level=logging.DEBUG)
+    args = parse_args()
+    run_data_service(args.workdir, args.port)
 
 
 if __name__ == "__main__":

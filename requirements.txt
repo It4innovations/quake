@@ -1,3 +1,5 @@
 cloudpickle
 uvloop
 mpi4py
+click
+git+https://github.com/spirali/abrpc@master
