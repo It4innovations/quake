@@ -75,6 +75,8 @@ class State:
         new_tasks = set()
 
         task_map = self.tasks
+        n_workers = len(self.all_workers)
+
         for tdict in serialized_tasks:
             task_id = tdict["task_id"]
             if task_id in task_map:
@@ -83,6 +85,11 @@ class State:
         for tdict in serialized_tasks:
             task_id = tdict["task_id"]
             task = Task(task_id, tdict["n_outputs"], tdict["n_workers"], tdict["config"], tdict["keep"])
+            if task.n_workers > n_workers:
+                message = "Task '{}' asked for {} workers, but server has only {} workers" \
+                    .format(task_id, task.n_workers, n_workers)
+                logger.error(message)
+                raise Exception(message)
             logger.debug("Task %s submitted", task_id)
             task_map[task_id] = task
             new_tasks.add(task)

@@ -28,6 +28,10 @@ def my_mul4(a, b):
     return a * b
 
 
+@quake.mpi_task(n_processes=8)
+def big_task():
+    pass
+
 
 def test_wrapper_wait_and_gather(client):
     quake.set_global_client(client)
@@ -87,3 +91,9 @@ def test_wrapper_args(client):
     f = my_const4()
     g = my_mul4(f, 2)
     assert quake.gather(g) == [24, 26, 28, 30]
+
+
+def test_wrapper_too_many_processes(client):
+    quake.set_global_client(client)
+    with pytest.raises(Exception, match="server has only 4 workers"):
+        quake.wait(big_task())
