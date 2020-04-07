@@ -95,6 +95,7 @@ class Service:
                 continue
             result.append((await f_obj).size)
         return result
+
     """
     @expose()
     async def map_to_fs(self, name, hostname=None, port=None):

@@ -1,5 +1,3 @@
-
-
 def compute_b_levels(tasks):
     stack = []
     to_compute = {}

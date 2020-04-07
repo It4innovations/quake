@@ -1,7 +1,7 @@
-from .scheduler import compute_b_levels
-from .task import Task, TaskState
 import logging
 
+from .scheduler import compute_b_levels
+from .task import Task, TaskState
 from ..common.taskinput import TaskInput
 
 logger = logging.getLogger(__file__)

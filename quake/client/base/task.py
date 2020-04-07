@@ -1,7 +1,7 @@
 import enum
 
-from quake.common.taskinput import TaskInput
 from quake.common.layout import Layout
+from quake.common.taskinput import TaskInput
 
 
 class TaskState(enum.Enum):
@@ -75,4 +75,3 @@ def upload_data(data, keep=False):
         "data": data,
     }
     return self.new_task(1, len(data), config, keep, ())
-

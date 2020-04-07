@@ -1,17 +1,15 @@
 import asyncio
 import json
 import logging
+import os
 import random
 import tempfile
-import os
 
 import abrpc
 import uvloop
 
 from .state import State
-from .task import TaskState, Task
-from .scheduler import compute_b_levels
-from ..common.taskinput import TaskInput
+from .task import TaskState
 
 # !!!!!!!!!!!!!!!
 uvloop.install()
@@ -80,7 +78,8 @@ async def _remove_from_workers(workers, name):
 
 
 async def _download_sizes(task, workers):
-    fs = [w.ds_connection.call("get_sizes", [task.make_data_name(output_id, part_id) for output_id in range(task.n_outputs)])
+    fs = [w.ds_connection.call("get_sizes",
+                               [task.make_data_name(output_id, part_id) for output_id in range(task.n_outputs)])
           for part_id, w in enumerate(workers)]
     sizes = await asyncio.gather(*fs)
     return [

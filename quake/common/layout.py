@@ -1,6 +1,4 @@
-
 class Layout:
-
     __slots__ = ("offset_r", "offset_c", "block_size_r", "block_size_c")
 
     def __init__(self, offset_r=0, offset_c=0, block_size_r=0, block_size_c=0):
