@@ -20,12 +20,16 @@ def parse_args():
     parser.add_argument("--port", type=int, default=8600)
     parser.add_argument("--ds-port", type=int, default=8602)
     parser.add_argument("--workers", type=str, default="localhost")
+    parser.add_argument("--debug", action="store_true")
     return parser.parse_args()
 
 
 def main():
-    logging.basicConfig(level=0)
     args = parse_args()
+    if args.debug:
+        logging.basicConfig(level=logging.DEBUG)
+    else:
+        logging.basicConfig(level=logging.INFO)
     server = Server(args.workers.split(","), args.ds_port)
 
     async def handle(conn):
