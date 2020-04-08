@@ -20,11 +20,15 @@ def is_inside_pbs():
     return "PBS_NODEFILE" in os.environ
 
 
-def get_pbs_nodes():
-    assert is_inside_pbs()
+def get_pbs_nodes(use_short_names):
+    if not is_inside_pbs():
+        raise Exception("Not in PBS job")
 
     with open(os.environ["PBS_NODEFILE"]) as f:
-        return [line.strip() for line in f]
+        nodes = [line.strip() for line in f]
+    if use_short_names:
+        nodes = [line.split(".")[0] for line in nodes]
+    return nodes
 
 
 def start_datasrv(cluster, node, workdir, env, init_cmd):
@@ -55,8 +59,9 @@ def start_server(cluster, workers, workdir, env, init_cmd):
 @click.command()
 @click.argument("workdir")
 @click.option("--init-cmd", default="")
-def up(workdir, init_cmd):
-    nodes = get_pbs_nodes()
+@click.option("--short-names", default=False, is_flag=True)
+def up(workdir, init_cmd, short_names):
+    nodes = get_pbs_nodes(short_names)
 
     workdir = pathlib.Path(workdir).absolute()
     prepare_directory(workdir)
