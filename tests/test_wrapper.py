@@ -33,6 +33,11 @@ def big_task():
     pass
 
 
+@quake.mpi_task(n_processes=2)
+def fail_task():
+    raise Exception("MyError")
+
+
 def test_wrapper_wait_and_gather(client):
     quake.set_global_client(client)
 
@@ -91,6 +96,14 @@ def test_wrapper_args(client):
     f = my_const4()
     g = my_mul4(f, 2)
     assert quake.gather(g) == [24, 26, 28, 30]
+
+
+def test_wrapper_error(client):
+    quake.set_global_client(client)
+
+    f = fail_task()
+    with pytest.raises(Exception, match="MyError"):
+        quake.gather(f)
 
 
 def test_wrapper_too_many_processes(client):

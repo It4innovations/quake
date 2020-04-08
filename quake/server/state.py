@@ -25,7 +25,8 @@ def _release_task(task, tasks_to_remove):
         if task in t.consumers:
             t.consumers.remove(task)
             _check_removal(t, tasks_to_remove)
-    _check_removal(task, tasks_to_remove)
+    if task.state == TaskState.FINISHED:
+        _check_removal(task, tasks_to_remove)
 
 
 def _transfer_costs(task, part_id, worker):
