@@ -66,8 +66,8 @@ def up(workdir, init_cmd, short_names):
     workdir = pathlib.Path(workdir).absolute()
     prepare_directory(workdir)
 
-    env = {}
-    env["PYTHONPATH"] = f'{ROOT_DIR}:{env.get("PYTHONPATH", "")}'
+    env = None
+    #env["PYTHONPATH"] = f'{ROOT_DIR}:{env.get("PYTHONPATH", "")}'
 
     cluster = Cluster(str(workdir))
     for node in nodes:
