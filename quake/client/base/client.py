@@ -69,5 +69,7 @@ class Client:
 
     def gather(self, task, output_id=None):
         logger.debug("Gathering task id=%s", task.task_id)
+        if not task.keep:
+            raise Exception("'keep' flag is not set for a task")
         loop = asyncio.get_event_loop()
         return loop.run_until_complete(self.connection.call("gather", task.task_id, output_id))

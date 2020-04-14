@@ -74,8 +74,13 @@ def test_wrapper_wait_and_gather(client):
     assert quake.gather(f, collapse_single_output=False) == [[12, 13, 14, 15]]
     assert quake.gather(f) == [12, 13, 14, 15]
     assert quake.gather(f, 0) == [12, 13, 14, 15]
-
     quake.remove(f)
+
+    f = my_const4()
+    quake.wait(f)
+    with pytest.raises(Exception, match="flag is not set"):
+        quake.gather(f) == [12, 13, 14, 15]
+
 
 
 def test_wrapper_args(client):
