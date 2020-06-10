@@ -106,7 +106,7 @@ def test_wrapper_args(client):
 def test_wrapper_error(client):
     quake.set_global_client(client)
 
-    f = fail_task()
+    f = fail_task(keep=True)
     with pytest.raises(Exception, match="MyError"):
         quake.gather(f)
 

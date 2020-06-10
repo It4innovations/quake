@@ -4,33 +4,34 @@ import pickle
 import pytest
 
 import quake.job
+from quake.client.base.task import Task, new_mpirun_task, upload_data, new_py_task, make_input
 
 
 def test_task_fail(client):
-    t1 = client.new_task(1, 2, {"type": "mpirun", "args": ["ls", "/xxx"]}, keep=True)
-    client.submit()
+    t1 = Task(None, 1, 2, {"type": "mpirun", "args": ["ls", "/xxx"]}, True, ())
+    client.submit([t1])
     with pytest.raises(Exception, match="Task id=. failed."):
         client.wait(t1)
 
 
 def test_simple_mpi_task(client):
-    t1 = client.new_mpirun_task(0, 2, ["ls", "/"], keep=True)
-    client.submit()
+    t1 = new_mpirun_task(0, 2, ["ls", "/"], keep=True)
+    client.submit([t1])
     client.wait(t1)
 
 
 def test_upload_download(client):
-    t1 = client.upload_data([b"123", b"567"], keep=True)
-    client.submit()
+    t1 = upload_data([b"123", b"567"], keep=True)
+    client.submit([t1])
     client.wait(t1)
 
-    t2 = client.upload_data([b"abcd", b"xyz", b"fffff"], keep=True)
-    client.submit()
+    t2 = upload_data([b"abcd", b"xyz", b"fffff"], keep=True)
+    client.submit([t2])
     assert [b"abcd", b"xyz", b"fffff"] == client.gather(t2, 0)
     assert [b"123", b"567"] == client.gather(t1, 0)
     assert [b"123", b"567"] == client.gather(t1, 0)
 
-    client.unkeep(t1)
+    client.remove(t1)
 
     with pytest.raises(Exception, match=".*keep.*"):
         client.gather(t1, 0)
@@ -49,15 +50,15 @@ def test_py_job(client):
     cfg = quake.job.config.JobConfiguration(job1, 1)
     task_data = pickle.dumps(cfg)
 
-    t1 = client.new_py_task(1, 2, task_data=task_data, keep=True)
+    t1 = new_py_task(1, 2, task_data=task_data, keep=True)
     # client.submit()
     # client.wait(t1)
     # assert [b"out0", b"out1"] == client.gather(t1, 0)
 
     cfg = quake.job.config.JobConfiguration(job2, 1)
     task_data = pickle.dumps(cfg)
-    t2 = client.new_py_task(1, 3, task_data=task_data, keep=True, inputs=[t1.output(0)])
-    client.submit()
+    t2 = new_py_task(1, 3, task_data=task_data, keep=True, inputs=[make_input(t1)])
+    client.submit([t1, t2])
     client.wait(t2)
 
     assert [b"out0", b"out1"] == client.gather(t1, 0)

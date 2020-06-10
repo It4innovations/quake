@@ -74,4 +74,4 @@ def upload_data(data, keep=False):
         "type": "upload",
         "data": data,
     }
-    return self.new_task(1, len(data), config, keep, ())
+    return Task(None, 1, len(data), config, keep, ())
