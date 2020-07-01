@@ -1,6 +1,6 @@
 # BASED on https://github.com/oweidner/docker.openmpi
 
-FROM ubuntu:18.04
+FROM ubuntu:20.04
 
 ENV USER mpirun
 
