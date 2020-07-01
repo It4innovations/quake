@@ -11,6 +11,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
 RUN apt-get update -y && \
     apt-get install -y --no-install-recommends sudo apt-utils && \
     apt-get install -y --no-install-recommends openssh-server \
+	iputils-ping iproute2 \
         python3-dev python3-pip python3-virtualenv python3-scipy psmisc \
         gcc gfortran libopenmpi-dev openmpi-bin openmpi-common openmpi-doc binutils git && \
     apt-get clean && apt-get purge && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
