@@ -19,14 +19,15 @@ from quake.client import Client  # noqa
 from quake.client.functions import reset_global_plan, set_global_client  # noqa
 
 
+nodes = 3
+
 @pytest.fixture(scope="session")
 def docker_cluster():
     no_shutdown = os.environ.get("QUAKE_TEST_NO_SHUTDOWN") == "1"
-    nodes = 3
     subprocess.check_call(
-        ["docker-compose", "up", "-d", "--scale", "mpi_head=1", "--scale", "mpi_node={}".format(nodes)],
+        ["docker-compose", "up", "-d"],
         cwd=DOCKER_DIR)
-    hostnames = tuple(["mpi_head"] + ["docker_mpi_node_{}".format(i) for i in range(1, nodes + 1)])
+    hostnames = tuple(["mpihead"] + ["mpinode{}".format(i) for i in range(1, nodes + 1)])
     yield hostnames
 
     if not no_shutdown:
@@ -39,10 +40,10 @@ cmd_prefix = ["docker-compose", "exec", "-T", "--user", "mpirun", "--privileged"
 
 def make_cmds(cmd):
     result = [
-        cmd_prefix + ["mpi_head"] + cmd
+        cmd_prefix + ["mpihead"] + cmd
     ]
-    for i in range(3):
-        result.append(cmd_prefix + ["--index={}".format(i + 1), "mpi_node"] + cmd)
+    for i in range(1, nodes + 1):
+        result.append(cmd_prefix + ["mpinode{}".format(i)] + cmd)
     return result
 
 
@@ -71,7 +72,7 @@ def client(docker_cluster):
 
     hostnames = ",".join(docker_cluster)
     # cmd = cmd_prefix + ["mpi_head", "/bin/bash", "-c", "kill `pgrep -f quake.server` ; sleep 0.1; echo 'xxx'; python3 -m quake.server --workers={}".format(hostnames)]
-    cmd = cmd_prefix + ["mpi_head", "/bin/bash", "-c", "python3 -m quake.server --workers={}".format(hostnames)]
+    cmd = cmd_prefix + ["mpihead", "/bin/bash", "-c", "python3 -m quake.server --debug --workers={}".format(hostnames)]
     print(" ".join(cmd))
     p = subprocess.Popen(cmd, cwd=DOCKER_DIR, stdin=subprocess.DEVNULL)
     ps.append(p)

@@ -1,7 +1,7 @@
 version: "2"
 
 services:
-  mpi_head:
+  mpihead:
     build: .
     environment:
       - PYTHONPATH=/app
@@ -9,14 +9,17 @@ services:
       - "7602:8602"
       - "7600:8600"
     links:
-      - mpi_node
+      - mpinode1
+      - mpinode2
+      - mpinode3
+      - mpinode4
     networks:
       - net
     volumes:
       - ../../:/app
-    hostname: mpi_head
+    container_name: mpihead
 
-  mpi_node:
+  mpinode1:
     build: .
     environment:
       - PYTHONPATH=/app
@@ -24,9 +27,45 @@ services:
       - net
     volumes:
       - ../../:/app
-    hostname: mpi_node
     expose:
       - 8602
+    container_name: mpinode1
+
+  mpinode2:
+    build: .
+    environment:
+      - PYTHONPATH=/app
+    networks:
+      - net
+    volumes:
+      - ../../:/app
+    expose:
+      - 8602
+    container_name: mpinode2
+
+  mpinode3:
+    build: .
+    environment:
+      - PYTHONPATH=/app
+    networks:
+      - net
+    volumes:
+      - ../../:/app
+    expose:
+      - 8602
+    container_name: mpinode3
+
+  mpinode4:
+    build: .
+    environment:
+      - PYTHONPATH=/app
+    networks:
+      - net
+    volumes:
+      - ../../:/app
+    expose:
+      - 8602
+    container_name: mpinode4
 
 networks:
   net:
