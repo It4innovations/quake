@@ -82,7 +82,6 @@ def test_wrapper_wait_and_gather(client):
         quake.gather(f) == [12, 13, 14, 15]
 
 
-
 def test_wrapper_args(client):
     quake.set_global_client(client)
 
@@ -90,16 +89,16 @@ def test_wrapper_args(client):
     g = my_sum(f, f)
     h = my_sum(g, my_const())
     j = my_sum(h, f)
-    g = my_sum_c(j, 7)
+    g = my_sum_c(j, 7, keep=True)
 
     assert quake.gather(g) == [55]
 
     f = my_const()
-    g = my_mul4(f, 2)
+    g = my_mul4(f, 2, keep=True)
     assert quake.gather(g) == [24] * 4
 
     f = my_const4()
-    g = my_mul4(f, 2)
+    g = my_mul4(f, 2, keep=True)
     assert quake.gather(g) == [24, 26, 28, 30]
 
 
