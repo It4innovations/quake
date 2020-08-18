@@ -4,7 +4,13 @@ import pickle
 import pytest
 
 import quake.job
-from quake.client.base.task import Task, new_mpirun_task, upload_data, new_py_task, make_input
+from quake.client.base.task import (
+    Task,
+    new_mpirun_task,
+    upload_data,
+    new_py_task,
+    make_input,
+)
 
 
 def test_task_fail(client):
@@ -64,4 +70,6 @@ def test_py_job(client):
     assert [b"out0", b"out1"] == client.gather(t1, 0)
     assert [b"out0", b"out1"] == client.gather(t1, 0)  # Check the same call again
     assert [b"0out0out1", b"1out0out1", b"2out0out1"] == client.gather(t2, 0)
-    assert [b"0out0out1", b"1out0out1", b"2out0out1"] == client.gather(t2, 0)  # Check the same call again
+    assert [b"0out0out1", b"1out0out1", b"2out0out1"] == client.gather(
+        t2, 0
+    )  # Check the same call again

@@ -12,12 +12,36 @@ def test_data_service(tmpdir, root_dir):
     env = {"PYTHONPATH": root_dir}
     ps = []
     ps.append(
-        subprocess.Popen(["python3", "-m", "quake.datasrv", "--port", str(PORT1), str(tmpdir.join("srv1"))], env=env))
+        subprocess.Popen(
+            [
+                "python3",
+                "-m",
+                "quake.datasrv",
+                "--port",
+                str(PORT1),
+                str(tmpdir.join("srv1")),
+            ],
+            env=env,
+        )
+    )
     ps.append(
-        subprocess.Popen(["python3", "-m", "quake.datasrv", "--port", str(PORT2), str(tmpdir.join("srv2"))], env=env))
+        subprocess.Popen(
+            [
+                "python3",
+                "-m",
+                "quake.datasrv",
+                "--port",
+                str(PORT2),
+                str(tmpdir.join("srv2")),
+            ],
+            env=env,
+        )
+    )
 
     async def main():
-        connection1 = abrpc.Connection(await asyncio.open_connection("localhost", PORT1))
+        connection1 = abrpc.Connection(
+            await asyncio.open_connection("localhost", PORT1)
+        )
         asyncio.ensure_future(connection1.serve())
         assert [] == await connection1.call("list_objects")
         await connection1.call("upload", "x_1", b"123")
@@ -26,7 +50,9 @@ def test_data_service(tmpdir, root_dir):
         data = await connection1.call("get_data", "x_1")
         assert data == b"123"
 
-        connection2 = abrpc.Connection(await asyncio.open_connection("localhost", PORT2))
+        connection2 = abrpc.Connection(
+            await asyncio.open_connection("localhost", PORT2)
+        )
         asyncio.ensure_future(connection2.serve())
         c1 = connection2.call("get_data", "x_1", "localhost", PORT1)
         c2 = connection2.call("get_data", "x_1", "localhost", PORT1)
@@ -44,32 +70,36 @@ def test_data_service(tmpdir, root_dir):
 
         s1 = await connection1.call("get_stats")
         s2 = await connection2.call("get_stats")
-        assert s1 == {'connections': 0,
-                      'obj_data_provided': 2,
-                      'obj_fetched': 0,
-                      # 'obj_file_provided': 0
-                      }
-        assert s2 == {'connections': 1,
-                      'obj_data_provided': 2,
-                      'obj_fetched': 1,
-                      # 'obj_file_provided': 2
-                      }
+        assert s1 == {
+            "connections": 0,
+            "obj_data_provided": 2,
+            "obj_fetched": 0,
+            # 'obj_file_provided': 0
+        }
+        assert s2 == {
+            "connections": 1,
+            "obj_data_provided": 2,
+            "obj_fetched": 1,
+            # 'obj_file_provided': 2
+        }
 
         assert b"123" == await connection1.call("get_data", "x_1", "localhost", PORT2)
         assert b"123" == await connection1.call("get_data", "x_1", "localhost", PORT2)
 
         s1 = await connection1.call("get_stats")
         s2 = await connection2.call("get_stats")
-        assert s1 == {'connections': 1,
-                      'obj_data_provided': 4,
-                      'obj_fetched': 1,
-                      # 'obj_file_provided': 0
-                      }
-        assert s2 == {'connections': 1,
-                      'obj_data_provided': 3,
-                      'obj_fetched': 1,
-                      # 'obj_file_provided': 2
-                      }
+        assert s1 == {
+            "connections": 1,
+            "obj_data_provided": 4,
+            "obj_fetched": 1,
+            # 'obj_file_provided': 0
+        }
+        assert s2 == {
+            "connections": 1,
+            "obj_data_provided": 3,
+            "obj_fetched": 1,
+            # 'obj_file_provided': 2
+        }
 
     try:
         time.sleep(0.3)

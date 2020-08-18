@@ -21,27 +21,25 @@ from quake.client.functions import reset_global_plan, set_global_client  # noqa
 
 nodes = 3
 
+
 @pytest.fixture(scope="session")
 def docker_cluster():
     no_shutdown = os.environ.get("QUAKE_TEST_NO_SHUTDOWN") == "1"
-    subprocess.check_call(
-        ["docker-compose", "up", "-d"],
-        cwd=DOCKER_DIR)
-    hostnames = tuple(["mpihead"] + ["mpinode{}".format(i) for i in range(1, nodes + 1)])
+    subprocess.check_call(["docker-compose", "up", "-d"], cwd=DOCKER_DIR)
+    hostnames = tuple(
+        ["mpihead"] + ["mpinode{}".format(i) for i in range(1, nodes + 1)]
+    )
     yield hostnames
 
     if not no_shutdown:
-        subprocess.check_call(["docker-compose", "down"],
-                              cwd=DOCKER_DIR)
+        subprocess.check_call(["docker-compose", "down"], cwd=DOCKER_DIR)
 
 
 cmd_prefix = ["docker-compose", "exec", "-T", "--user", "mpirun", "--privileged"]
 
 
 def make_cmds(cmd):
-    result = [
-        cmd_prefix + ["mpihead"] + cmd
-    ]
+    result = [cmd_prefix + ["mpihead"] + cmd]
     for i in range(1, nodes + 1):
         result.append(cmd_prefix + ["mpinode{}".format(i)] + cmd)
     return result
@@ -62,7 +60,14 @@ def wait_for_port(port):
 
 def popen_helper(cmd, logfile, **kwargs):
     with open(logfile, "w") as f:
-        return subprocess.Popen(cmd, cwd=DOCKER_DIR, stdin=subprocess.DEVNULL, stderr=subprocess.STDOUT, stdout=f, **kwargs)
+        return subprocess.Popen(
+            cmd,
+            cwd=DOCKER_DIR,
+            stdin=subprocess.DEVNULL,
+            stderr=subprocess.STDOUT,
+            stdout=f,
+            **kwargs
+        )
 
 
 @pytest.fixture(scope="function")
@@ -70,8 +75,15 @@ def client(docker_cluster, tmpdir):
     print("Working directory:", tmpdir)
     ps = []
     logdir = tmpdir.mkdir("logs")
-    for i, cmd in enumerate(make_cmds(["/bin/bash", "-c",
-                          "pgrep python3 | xargs kill; sleep 0.1 ; rm -rf /tmp/data ; python3 -m quake.datasrv /tmp/data"])):
+    for i, cmd in enumerate(
+        make_cmds(
+            [
+                "/bin/bash",
+                "-c",
+                "pgrep python3 | xargs kill; sleep 0.1 ; rm -rf /tmp/data ; python3 -m quake.datasrv /tmp/data",
+            ]
+        )
+    ):
         p = popen_helper(cmd, logfile=logdir.join("cleanup-{}".format(i)))
         ps.append(p)
 
@@ -79,7 +91,12 @@ def client(docker_cluster, tmpdir):
 
     hostnames = ",".join(docker_cluster)
     # cmd = cmd_prefix + ["mpi_head", "/bin/bash", "-c", "kill `pgrep -f quake.server` ; sleep 0.1; echo 'xxx'; python3 -m quake.server --workers={}".format(hostnames)]
-    cmd = cmd_prefix + ["mpihead", "/bin/bash", "-c", "python3 -m quake.server --debug --workers={}".format(hostnames)]
+    cmd = cmd_prefix + [
+        "mpihead",
+        "/bin/bash",
+        "-c",
+        "python3 -m quake.server --debug --workers={}".format(hostnames),
+    ]
     # print(" ".join(cmd))
     popen_helper(cmd, logfile=logdir.join("server"))
     ps.append(p)

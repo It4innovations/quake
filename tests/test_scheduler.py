@@ -100,7 +100,14 @@ def test_greedy_match():
     t1 = Task(1, 1, 3, None, False, [])
     t2 = Task(2, 1, 1, None, False, [])
     t3 = Task(3, 1, 2, None, False, [])
-    t4 = Task(4, 0, 3, None, False, [inp(t1, 0, "scatter"), inp(t2, 0, "all_to_all"), inp(t3, 0, "scatter")])
+    t4 = Task(
+        4,
+        0,
+        3,
+        None,
+        False,
+        [inp(t1, 0, "scatter"), inp(t2, 0, "all_to_all"), inp(t3, 0, "scatter")],
+    )
     workers = make_workers(4)
     state = State(workers)
     state.add_tasks([t.to_dict() for t in [t1, t2, t3, t4]])
@@ -113,5 +120,5 @@ def test_greedy_match():
     state._fake_placement(t3, [[{w1, w2}, {w2}]], [[1, 2]])
 
     s = list(state.schedule())
-    assert(len(s) == 1)
-    assert(s[0][1] == [w2, w3, w1])
+    assert len(s) == 1
+    assert s[0][1] == [w2, w3, w1]
