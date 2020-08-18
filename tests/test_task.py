@@ -43,12 +43,12 @@ def test_upload_download(client):
         client.gather(t1, 0)
 
 
-def job1(job, input_data):
+def job1(job, input_data, payload):
     assert input_data == []
     return [b"out" + str(job.rank).encode("ascii")]
 
 
-def job2(job, input_data):
+def job2(job, input_data, payload):
     return [str(job.rank).encode() + input_data[0][0] + input_data[0][1]]
 
 

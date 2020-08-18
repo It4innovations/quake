@@ -4,7 +4,7 @@ services:
   mpihead:
     build: .
     environment:
-      - PYTHONPATH=/app
+      - PYTHONPATH=/app:/app/tests
     ports:
       - "7602:8602"
       - "7600:8600"
@@ -22,7 +22,7 @@ services:
   mpinode1:
     build: .
     environment:
-      - PYTHONPATH=/app
+      - PYTHONPATH=/app:/app/tests
     networks:
       - net
     volumes:
@@ -34,7 +34,7 @@ services:
   mpinode2:
     build: .
     environment:
-      - PYTHONPATH=/app
+      - PYTHONPATH=/app:/app/tests
     networks:
       - net
     volumes:
@@ -46,7 +46,7 @@ services:
   mpinode3:
     build: .
     environment:
-      - PYTHONPATH=/app
+      - PYTHONPATH=/app:/app/tests
     networks:
       - net
     volumes:
@@ -58,7 +58,7 @@ services:
   mpinode4:
     build: .
     environment:
-      - PYTHONPATH=/app
+      - PYTHONPATH=/app:/app/tests
     networks:
       - net
     volumes:
