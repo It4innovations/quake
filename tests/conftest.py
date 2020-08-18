@@ -60,12 +60,19 @@ def wait_for_port(port):
     s.close()
 
 
+def popen_helper(cmd, logfile, **kwargs):
+    with open(logfile, "w") as f:
+        return subprocess.Popen(cmd, cwd=DOCKER_DIR, stdin=subprocess.DEVNULL, stderr=subprocess.STDOUT, stdout=f, **kwargs)
+
+
 @pytest.fixture(scope="function")
-def client(docker_cluster):
+def client(docker_cluster, tmpdir):
+    print("Working directory:", tmpdir)
     ps = []
-    for cmd in make_cmds(["/bin/bash", "-c",
-                          "pgrep python3 | xargs kill; sleep 0.1 ; rm -rf /tmp/data ; python3 -m quake.datasrv /tmp/data"]):
-        p = subprocess.Popen(cmd, cwd=DOCKER_DIR, stdin=subprocess.DEVNULL)
+    logdir = tmpdir.mkdir("logs")
+    for i, cmd in enumerate(make_cmds(["/bin/bash", "-c",
+                          "pgrep python3 | xargs kill; sleep 0.1 ; rm -rf /tmp/data ; python3 -m quake.datasrv /tmp/data"])):
+        p = popen_helper(cmd, logfile=logdir.join("cleanup-{}".format(i)))
         ps.append(p)
 
     time.sleep(1.5)
@@ -73,8 +80,8 @@ def client(docker_cluster):
     hostnames = ",".join(docker_cluster)
     # cmd = cmd_prefix + ["mpi_head", "/bin/bash", "-c", "kill `pgrep -f quake.server` ; sleep 0.1; echo 'xxx'; python3 -m quake.server --workers={}".format(hostnames)]
     cmd = cmd_prefix + ["mpihead", "/bin/bash", "-c", "python3 -m quake.server --debug --workers={}".format(hostnames)]
-    print(" ".join(cmd))
-    p = subprocess.Popen(cmd, cwd=DOCKER_DIR, stdin=subprocess.DEVNULL)
+    # print(" ".join(cmd))
+    popen_helper(cmd, logfile=logdir.join("server"))
     ps.append(p)
 
     time.sleep(3)
