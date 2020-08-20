@@ -1,4 +1,5 @@
 import logging
+import sys
 
 from .scheduler import compute_b_levels
 from .task import Task, TaskState
@@ -195,3 +196,10 @@ class State:
             raise Exception(task.error)
         else:
             assert 0
+
+    def dump(self):
+        print("--- State ({} tasks) --- ".format(len(self.tasks)))
+        for task_id, task in sorted(self.tasks.items()):
+            task.dump()
+        print("--- End of state ---")
+        sys.stdout.flush()

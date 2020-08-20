@@ -30,6 +30,17 @@ class Task:
 
         self.b_level = None
 
+    def dump(self):
+        print("Task {}".format(self.task_id))
+        print("\tstate:", self.state)
+        print("\tinputs:", self.inputs)
+        print("\tn_outputs:", self.n_outputs)
+        print("\tn_workers:", self.n_workers)
+        print("\tconsumers:", self.consumers)
+        print("\tb_level:", self.b_level)
+        if self.error:
+            print("\terror:", self.error)
+
     def make_data_name(self, output_id, part):
         return make_data_name(self.task_id, output_id, part)
 
@@ -89,4 +100,4 @@ class Task:
         self.sizes = None
 
     def __repr__(self):
-        return "<Task id={} w={}>".format(self.task_id, self.n_workers)
+        return "<Task id={}>".format(self.task_id)

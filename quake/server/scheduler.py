@@ -1,8 +1,14 @@
+import logging
+from .task import TaskState
+
+logger = logging.getLogger(__file__)
+
+
 def compute_b_levels(tasks):
     stack = []
     to_compute = {}
     for task in tasks.values():
-        if task.consumers is None:
+        if task.state != TaskState.UNFINISHED:
             continue
         c = len(task.consumers)
         to_compute[task] = c
