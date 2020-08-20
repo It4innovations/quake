@@ -1,9 +1,10 @@
 import asyncio
-
+from datetime import datetime
 import uvloop
 from abrpc import expose, Connection
 
 from .obj import Object
+from .monitoring import get_resources
 
 uvloop.install()
 
@@ -121,7 +122,11 @@ class Service:
     async def get_stats(self):
         return {
             # "obj_file_provided": self.stats_obj_file_provided,
-            "obj_data_provided": self.stats_obj_data_provided,
-            "obj_fetched": self.stats_obj_fetched,
-            "connections": len(self.connections),
+            "service": {
+              "obj_data_provided": self.stats_obj_data_provided,
+              "obj_fetched": self.stats_obj_fetched,
+              "connections": len(self.connections),
+            },
+            "resources": get_resources(),
+            "timestamp": datetime.now().isoformat()
         }

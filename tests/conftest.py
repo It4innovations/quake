@@ -91,11 +91,12 @@ def client(docker_cluster, tmpdir):
 
     hostnames = ",".join(docker_cluster)
     # cmd = cmd_prefix + ["mpi_head", "/bin/bash", "-c", "kill `pgrep -f quake.server` ; sleep 0.1; echo 'xxx'; python3 -m quake.server --workers={}".format(hostnames)]
+    monitoring_file = str(logdir.join("monitoring"))
     cmd = cmd_prefix + [
         "mpihead",
         "/bin/bash",
         "-c",
-        "python3 -m quake.server --debug --workers={}".format(hostnames),
+        "python3 -m quake.server --debug --workers={} --monitoring=/tmp/monitoring".format(hostnames),
     ]
     # print(" ".join(cmd))
     popen_helper(cmd, logfile=logdir.join("server"))

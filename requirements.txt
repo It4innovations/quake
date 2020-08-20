@@ -2,4 +2,6 @@ cloudpickle
 uvloop
 mpi4py
 click
+psutil
+aiofile
 git+https://github.com/spirali/abrpc@master

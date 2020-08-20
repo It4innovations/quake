@@ -53,8 +53,9 @@ RUN pip3 install --upgrade pip
 
 USER ${USER}
 RUN  pip3 install --user -U setuptools \
-    && pip3 install --user mpi4py uvloop cloudpickle pytest
+    && pip3 install --user mpi4py aiofile uvloop cloudpickle pytest
 
+RUN pip3 install psutil
 RUN pip3 install git+https://github.com/spirali/abrpc.git --user
 
 # ------------------------------------------------------------

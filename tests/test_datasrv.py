@@ -70,6 +70,13 @@ def test_data_service(tmpdir, root_dir):
 
         s1 = await connection1.call("get_stats")
         s2 = await connection2.call("get_stats")
+
+        m = s1.pop("resources")
+        assert "cpu" in m
+
+        m = s2.pop("resources")
+        assert "cpu" in m
+
         assert s1 == {
             "connections": 0,
             "obj_data_provided": 2,
@@ -88,6 +95,13 @@ def test_data_service(tmpdir, root_dir):
 
         s1 = await connection1.call("get_stats")
         s2 = await connection2.call("get_stats")
+
+        m = s1.pop("resources")
+        assert "cpu" in m
+
+        m = s2.pop("resources")
+        assert "cpu" in m
+
         assert s1 == {
             "connections": 1,
             "obj_data_provided": 4,

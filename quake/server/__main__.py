@@ -21,6 +21,7 @@ def parse_args():
     parser.add_argument("--ds-port", type=int, default=8602)
     parser.add_argument("--workers", type=str, default="localhost")
     parser.add_argument("--debug", action="store_true")
+    parser.add_argument("--monitoring")
     return parser.parse_args()
 
 
@@ -30,7 +31,7 @@ def main():
         logging.basicConfig(level=logging.DEBUG)
     else:
         logging.basicConfig(level=logging.INFO)
-    server = Server(args.workers.split(","), args.ds_port)
+    server = Server(args.workers.split(","), args.ds_port, args.monitoring)
 
     async def handle(conn):
         logger.info("New client connection %s", conn)

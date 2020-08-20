@@ -10,6 +10,7 @@ import uvloop
 
 from .state import State
 from .task import TaskState
+from aiofile import AIOFile, Writer
 
 # !!!!!!!!!!!!!!!
 uvloop.install()
@@ -88,9 +89,16 @@ async def _download_sizes(task, workers):
     ]
 
 
+async def _fetch_stats(worker):
+    logger.debug("Fetching stats from worker %s", worker.hostname)
+    data = await worker.ds_connection.call("get_stats")
+    data["hostname"] = worker.hostname
+    return data
+
+
 class Server:
 
-    def __init__(self, worker_hostnames, local_ds_port):
+    def __init__(self, worker_hostnames, local_ds_port, monitor_filename):
         logger.debug("Starting QUake server")
 
         workers = []
@@ -106,6 +114,8 @@ class Server:
 
         self.local_ds_connection = None
         self.ds_port = local_ds_port
+
+        self.monitor_filename = monitor_filename
 
     @staticmethod
     async def _gather_output(task, output_id):
@@ -302,6 +312,25 @@ class Server:
         fs = [connect(w.hostname, self.ds_port) for w in self.state.all_workers]
         connections = await asyncio.gather(*fs)
 
+        if self.monitor_filename:
+            asyncio.ensure_future(self.collect_stats())
+
         for w, c in zip(self.state.all_workers, connections):
             w.ds_connection = c
         self.local_ds_connection = connections[0]
+
+    async def collect_stats(self):
+        logger.info("Monitoring streamed into: %s", self.monitor_filename)
+        async with AIOFile(self.monitor_filename, "w") as monitor_file:
+            writer = Writer(monitor_file)
+            while True:
+                await asyncio.sleep(1)
+                results = []
+                try:
+                    for data in asyncio.as_completed([_fetch_stats(w) for w in self.state.all_workers], timeout=1):
+                        results.append(json.dumps(await data))
+                except asyncio.TimeoutError:
+                    logger.error("Fetching stats timeouted")
+                if results:
+                    await writer("\n".join(results) + "\n")
+                    await monitor_file.fsync()
