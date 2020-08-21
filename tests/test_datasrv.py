@@ -68,14 +68,8 @@ def test_data_service(tmpdir, root_dir):
         with pytest.raises(abrpc.RemoteException):
             await connection1.call("get_data", "x_1")
 
-        s1 = await connection1.call("get_stats")
-        s2 = await connection2.call("get_stats")
-
-        m = s1.pop("resources")
-        assert "cpu" in m
-
-        m = s2.pop("resources")
-        assert "cpu" in m
+        s1 = (await connection1.call("get_stats"))["service"]
+        s2 = (await connection2.call("get_stats"))["service"]
 
         assert s1 == {
             "connections": 0,
@@ -93,14 +87,8 @@ def test_data_service(tmpdir, root_dir):
         assert b"123" == await connection1.call("get_data", "x_1", "localhost", PORT2)
         assert b"123" == await connection1.call("get_data", "x_1", "localhost", PORT2)
 
-        s1 = await connection1.call("get_stats")
-        s2 = await connection2.call("get_stats")
-
-        m = s1.pop("resources")
-        assert "cpu" in m
-
-        m = s2.pop("resources")
-        assert "cpu" in m
+        s1 = (await connection1.call("get_stats"))["service"]
+        s2 = (await connection2.call("get_stats"))["service"]
 
         assert s1 == {
             "connections": 1,
