@@ -15,5 +15,5 @@ def get_resources():
         "net-write": 0 if bytes is None else bytes.bytes_sent,
         "net-read": 0 if bytes is None else bytes.bytes_recv,
         "disk-write": 0 if io is None else io.write_bytes,
-        "disk-read": 0 if io is None else io.read_bytes
+        "disk-read": 0 if io is None else io.read_bytes,
     }

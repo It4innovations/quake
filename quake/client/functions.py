@@ -14,6 +14,7 @@ global_client = None
 def mpi_task(*, n_processes, n_outputs=1):
     def _builder(fn):
         return FunctionWrapper(fn, n_processes, n_outputs, global_plan)
+
     return _builder
 
 
@@ -28,6 +29,7 @@ def arg(name, layout="all_to_all"):
             fn._quake_args = configs
         configs[name] = ArgConfig(layout)
         return fn
+
     return _builder
 
 
@@ -80,8 +82,10 @@ def ensure_global_client():
     if global_client is None:
         server = os.environ.get("QUAKE_SERVER")
         if server is None:
-            raise Exception("No global server is defined."
-                            "Set variable QUAKE_SERVER or call quake.client.set_global_client()")
+            raise Exception(
+                "No global server is defined."
+                "Set variable QUAKE_SERVER or call quake.client.set_global_client()"
+            )
         if ":" in server:
             hostname, port = server.rsplit(":", 1)
             try:
@@ -92,6 +96,7 @@ def ensure_global_client():
         else:
             global_client = Client(server)
     return global_client
+
 
 # ===== Internals ==============
 

@@ -21,7 +21,9 @@ class Client:
 
     def _connect(self, hostname, port):
         async def connect():
-            connection = abrpc.Connection(await asyncio.open_connection(hostname, port=port))
+            connection = abrpc.Connection(
+                await asyncio.open_connection(hostname, port=port)
+            )
             asyncio.ensure_future(connection.serve())
             logger.info("Connection to server established")
             return connection
@@ -54,7 +56,9 @@ class Client:
         logger.debug("Submitting %s tasks", len(tasks))
         serialized_tasks = self._prepare_submit(tasks)
         if serialized_tasks:
-            self.loop.run_until_complete(self.connection.call("submit", serialized_tasks))
+            self.loop.run_until_complete(
+                self.connection.call("submit", serialized_tasks)
+            )
 
     def wait(self, task):
         logger.debug("Waiting on task id=%s", task.task_id)
@@ -72,4 +76,6 @@ class Client:
         if not task.keep:
             raise Exception("'keep' flag is not set for a task")
         loop = asyncio.get_event_loop()
-        return loop.run_until_complete(self.connection.call("gather", task.task_id, output_id))
+        return loop.run_until_complete(
+            self.connection.call("gather", task.task_id, output_id)
+        )

@@ -34,7 +34,8 @@ def run_data_service(workdir, port):
 
     loop = asyncio.get_event_loop()
     loop.run_until_complete(
-        asyncio.start_server(on_connection(handle), host="0.0.0.0", port=port))
+        asyncio.start_server(on_connection(handle), host="0.0.0.0", port=port)
+    )
     loop.run_forever()
 
 

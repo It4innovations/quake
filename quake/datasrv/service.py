@@ -15,14 +15,19 @@ def validate_name(name):
 
 
 class Service:
-
     def __init__(self, workdir):
         self.workdir = workdir
         self.objects = {}
         self.connections = {}
 
+        self.events = []
+
         self.stats_obj_fetched = 0
+        self.stats_bytes_fetched = 0
         self.stats_obj_data_provided = 0
+        self.stats_bytes_provided = 0
+        self.stats_obj_uploaded = 0
+        self.stats_bytes_uploaded = 0
 
     async def _serve(self, connection, hostname, port):
         await connection.serve()
@@ -51,6 +56,7 @@ class Service:
             conn = await self._connect(hostname, port)
             data = await conn.call("get_data", name)
             self.stats_obj_fetched += 1
+            self.stats_bytes_fetched += len(data)
             obj = Object(name, data)
             f.set_result(obj)
             return obj
@@ -73,14 +79,17 @@ class Service:
             raise Exception("Data is not bytes, but {}".format(type(data)))
         obj_f = asyncio.Future()
         obj_f.set_result(Object(name, data))
+        self.stats_obj_uploaded += 1
+        self.stats_bytes_uploaded += len(data)
         self.objects[name] = obj_f
 
     @expose()
     async def get_data(self, name, hostname=None, port=None):
         validate_name(name)
-        obj = await self._get_object(name, hostname, port)
+        data = (await self._get_object(name, hostname, port)).get_data()
         self.stats_obj_data_provided += 1
-        return obj.get_data()
+        self.stats_bytes_provided += len(data)
+        return data
         # if data is None:
         #    # This can happen in case of racing with .remove()
         #    raise Exception("Object removed")
@@ -119,14 +128,29 @@ class Service:
         return True
 
     @expose()
-    async def get_stats(self):
-        return {
+    async def add_event(self, event):
+        self.events.append(event)
+
+    @expose()
+    async def get_stats(self, clear_events=True):
+        result = {
             # "obj_file_provided": self.stats_obj_file_provided,
             "service": {
-              "obj_data_provided": self.stats_obj_data_provided,
-              "obj_fetched": self.stats_obj_fetched,
-              "connections": len(self.connections),
+                "obj_provided": self.stats_obj_data_provided,
+                "obj_fetched": self.stats_obj_fetched,
+                "obj_uploaded": self.stats_obj_uploaded,
+                "bytes_fetched": self.stats_bytes_fetched,
+                "bytes_provided": self.stats_bytes_provided,
+                "bytes_uploaded": self.stats_bytes_uploaded,
+                "connections": len(self.connections),
             },
             "resources": get_resources(),
-            "timestamp": datetime.now().isoformat()
+            "timestamp": datetime.now().isoformat(),
         }
+
+        events = self.events
+        if clear_events:
+            self.events = []
+        if events:
+            result["events"] = events
+        return result

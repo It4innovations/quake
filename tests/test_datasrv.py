@@ -71,18 +71,13 @@ def test_data_service(tmpdir, root_dir):
         s1 = (await connection1.call("get_stats"))["service"]
         s2 = (await connection2.call("get_stats"))["service"]
 
-        assert s1 == {
-            "connections": 0,
-            "obj_data_provided": 2,
-            "obj_fetched": 0,
-            # 'obj_file_provided': 0
-        }
-        assert s2 == {
-            "connections": 1,
-            "obj_data_provided": 2,
-            "obj_fetched": 1,
-            # 'obj_file_provided': 2
-        }
+        assert s1["connections"] == 0
+        assert s1["obj_provided"] == 2
+        assert s1["obj_fetched"] == 0
+
+        assert s2["connections"] == 1
+        assert s2["obj_provided"] == 2
+        assert s2["obj_fetched"] == 1
 
         assert b"123" == await connection1.call("get_data", "x_1", "localhost", PORT2)
         assert b"123" == await connection1.call("get_data", "x_1", "localhost", PORT2)
@@ -90,18 +85,13 @@ def test_data_service(tmpdir, root_dir):
         s1 = (await connection1.call("get_stats"))["service"]
         s2 = (await connection2.call("get_stats"))["service"]
 
-        assert s1 == {
-            "connections": 1,
-            "obj_data_provided": 4,
-            "obj_fetched": 1,
-            # 'obj_file_provided': 0
-        }
-        assert s2 == {
-            "connections": 1,
-            "obj_data_provided": 3,
-            "obj_fetched": 1,
-            # 'obj_file_provided': 2
-        }
+        assert s1["connections"] == 1
+        assert s1["obj_provided"] == 4
+        assert s1["obj_fetched"] == 1
+
+        assert s2["connections"] == 1
+        assert s2["obj_provided"] == 3
+        assert s2["obj_fetched"] == 1
 
     try:
         time.sleep(0.3)

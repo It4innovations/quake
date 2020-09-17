@@ -14,15 +14,16 @@ class TaskInput:
         return {
             "task": self.task.task_id,
             "output_ids": self.output_ids,
-            "layout": self.layout.serialize()
+            "layout": self.layout.serialize(),
         }
 
     @staticmethod
     def from_dict(data, tasks):
         return TaskInput(
-            tasks[data["task"]],
-            data["output_ids"],
-            Layout.deserialize(data["layout"]))
+            tasks[data["task"]], data["output_ids"], Layout.deserialize(data["layout"])
+        )
 
     def __repr__(self):
-        return "<Input task={} o={} l={}>".format(self.task.task_id, self.output_ids, self.layout)
+        return "<Input task={} o={} l={}>".format(
+            self.task.task_id, self.output_ids, self.layout
+        )

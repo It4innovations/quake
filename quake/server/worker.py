@@ -1,5 +1,4 @@
 class Worker:
-
     def __init__(self, worker_id, hostname):
         self.worker_id = worker_id
         self.hostname = hostname

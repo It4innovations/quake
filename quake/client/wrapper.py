@@ -23,7 +23,6 @@ def _load(obj):
 
 
 class PythonJob:
-
     def __init__(self, pickled_fn, task_args, const_args):
         self.pickled_fn = pickled_fn
         self.task_args = task_args
@@ -42,7 +41,6 @@ ArgConfig = collections.namedtuple("ArgConfig", "layout")
 
 
 class FunctionWrapper:
-
     def __init__(self, fn, n_processes, n_outputs, plan):
         self.fn = fn
         self.signature = inspect.signature(fn)

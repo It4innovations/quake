@@ -43,7 +43,8 @@ def main():
 
     logger.info("Listing for client on port %s", args.port)
     loop.run_until_complete(
-        asyncio.start_server(on_connection(handle), host="0.0.0.0", port=args.port))
+        asyncio.start_server(on_connection(handle), host="0.0.0.0", port=args.port)
+    )
     loop.run_forever()
 
 

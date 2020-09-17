@@ -20,7 +20,6 @@ logger = logging.getLogger(__file__)
 
 
 class Process:
-
     def __init__(self, task, workers):
         self.task = task
         self.workers = workers
@@ -62,7 +61,11 @@ async def _remove_task(task):
 
     for output_id in range(task.n_outputs):
         for part in range(task.n_workers):
-            fs.append(_remove_from_workers(placement[output_id][part], task.make_data_name(output_id, part)))
+            fs.append(
+                _remove_from_workers(
+                    placement[output_id][part], task.make_data_name(output_id, part)
+                )
+            )
 
     await asyncio.gather(*fs)
     logger.debug("All parts of task %s was removed (%s calls)", task, len(fs))
@@ -79,9 +82,16 @@ async def _remove_from_workers(workers, name):
 
 
 async def _download_sizes(task, workers):
-    fs = [w.ds_connection.call("get_sizes",
-                               [task.make_data_name(output_id, part_id) for output_id in range(task.n_outputs)])
-          for part_id, w in enumerate(workers)]
+    fs = [
+        w.ds_connection.call(
+            "get_sizes",
+            [
+                task.make_data_name(output_id, part_id)
+                for output_id in range(task.n_outputs)
+            ],
+        )
+        for part_id, w in enumerate(workers)
+    ]
     sizes = await asyncio.gather(*fs)
     return [
         [sizes[part_id][output_id] for part_id in range(task.n_workers)]
@@ -97,7 +107,6 @@ async def _fetch_stats(worker):
 
 
 class Server:
-
     def __init__(self, worker_hostnames, local_ds_port, monitor_filename):
         logger.debug("Starting QUake server")
 
@@ -121,7 +130,10 @@ class Server:
     async def _gather_output(task, output_id):
         workers = [random.choice(tuple(ws)) for ws in task.placement[output_id]]
         assert len(workers) == task.n_workers
-        fs = [w.ds_connection.call("get_data", task.make_data_name(output_id, i)) for i, w in enumerate(workers)]
+        fs = [
+            w.ds_connection.call("get_data", task.make_data_name(output_id, i))
+            for i, w in enumerate(workers)
+        ]
         return await asyncio.gather(*fs)
 
     @abrpc.expose()
@@ -131,7 +143,10 @@ class Server:
             raise Exception("Task '{}' not found".format(task_id))
         await _wait_for_task(task)
         if output_id is None:
-            fs = [self._gather_output(task, output_id) for output_id in range(task.n_outputs)]
+            fs = [
+                self._gather_output(task, output_id)
+                for output_id in range(task.n_outputs)
+            ]
             return await asyncio.gather(*fs)
         else:
             return await self._gather_output(task, output_id)
@@ -230,8 +245,10 @@ class Server:
     async def _upload(self, task, workers):
         parts = task.config["data"]
         try:
-            fs = [workers[i].ds_connection.call("upload", task.make_data_name(0, i), data)
-                  for i, data in enumerate(parts)]
+            fs = [
+                workers[i].ds_connection.call("upload", task.make_data_name(0, i), data)
+                for i, data in enumerate(parts)
+            ]
             await asyncio.wait(fs)
             self._task_finished(task, workers, [[len(data) for data in parts]])
         except Exception as e:
@@ -247,17 +264,16 @@ class Server:
                     name = inp.task.make_data_name(output_id, i)
                     placements[name] = [(w.hostname, self.ds_port) for w in p[i]]
         inputs = [
-            {"task_id": inp.task.task_id,
-             "output_ids": inp.output_ids,
-             "n_parts": inp.task.n_workers,
-             "layout": inp.layout.serialize()}
+            {
+                "task_id": inp.task.task_id,
+                "output_ids": inp.output_ids,
+                "n_parts": inp.task.n_workers,
+                "layout": inp.layout.serialize(),
+            }
             for inp in task.inputs
         ]
 
-        return {
-            "placements": placements,
-            "inputs": inputs
-        }
+        return {"placements": placements, "inputs": inputs}
 
     async def _exec(self, task, args, workers):
         data_key = None
@@ -270,14 +286,23 @@ class Server:
                 upload_fs.append(_upload_on_workers(workers, data_key, task_data))
             placement_key = "placement_{}".format(task.task_id)
             upload_fs.append(
-                _upload_on_workers(workers, placement_key, json.dumps(self._create_placement_data(task)).encode()))
+                _upload_on_workers(
+                    workers,
+                    placement_key,
+                    json.dumps(self._create_placement_data(task)).encode(),
+                )
+            )
             await asyncio.wait(upload_fs)
 
             with tempfile.TemporaryFile() as stdout_file:
                 with tempfile.TemporaryFile() as stderr_file:
                     logger.debug("Starting %s: %s", task, args)
                     process = await asyncio.create_subprocess_exec(
-                        *args, stderr=stderr_file, stdout=stdout_file, stdin=asyncio.subprocess.DEVNULL)
+                        *args,
+                        stderr=stderr_file,
+                        stdout=stdout_file,
+                        stdin=asyncio.subprocess.DEVNULL
+                    )
                     exitcode = await process.wait()
                     if exitcode != 0:
                         stderr_file.seek(0)
@@ -285,7 +310,8 @@ class Server:
                         stdout_file.seek(0)
                         stdout = stdout_file.read().decode()
                         message = "Task id={} failed. Exit code: {}\nStdout:\n{}\nStderr:\n{}\n".format(
-                            task.task_id, exitcode, stdout, stderr)
+                            task.task_id, exitcode, stdout, stderr
+                        )
                         self._task_failed(task, workers, message)
                     else:
                         # DEBUG
@@ -293,10 +319,15 @@ class Server:
                         stderr = stderr_file.read().decode()
                         stdout_file.seek(0)
                         stdout = stdout_file.read().decode()
-                        logger.info("Task id={} finished.\nStdout:\n{}\nStderr:\n{}\n".format(
-                            task.task_id, stdout, stderr))
+                        logger.info(
+                            "Task id={} finished.\nStdout:\n{}\nStderr:\n{}\n".format(
+                                task.task_id, stdout, stderr
+                            )
+                        )
                         sizes = await _download_sizes(task, workers)
-                        logger.debug("Sizes of task=%s downloaded sizes=%s", task.task_id, sizes)
+                        logger.debug(
+                            "Sizes of task=%s downloaded sizes=%s", task.task_id, sizes
+                        )
                         self._task_finished(task, workers, sizes)
         finally:
             if data_key:
@@ -305,7 +336,9 @@ class Server:
 
     async def connect_to_ds(self):
         async def connect(hostname, port):
-            connection = abrpc.Connection(await asyncio.open_connection(hostname, port=port))
+            connection = abrpc.Connection(
+                await asyncio.open_connection(hostname, port=port)
+            )
             asyncio.ensure_future(connection.serve())
             return connection
 
@@ -327,7 +360,9 @@ class Server:
                 await asyncio.sleep(1)
                 results = []
                 try:
-                    for data in asyncio.as_completed([_fetch_stats(w) for w in self.state.all_workers], timeout=1):
+                    for data in asyncio.as_completed(
+                        [_fetch_stats(w) for w in self.state.all_workers], timeout=1
+                    ):
                         results.append(json.dumps(await data))
                 except asyncio.TimeoutError:
                     logger.error("Fetching stats timeouted")

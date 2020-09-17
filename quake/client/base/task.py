@@ -10,7 +10,6 @@ class TaskState(enum.Enum):
 
 
 class Task:
-
     def __init__(self, task_id, n_outputs, n_workers, config, keep, inputs):
         self.task_id = task_id
         self.inputs = inputs
@@ -51,11 +50,7 @@ PY_JOB_ARGS = ("python3", "-m", "quake.job", "$TASK_ID", "$RANK", "$DS_PORT")
 
 
 def new_mpirun_task(n_outputs, n_workers, args, keep=False, task_data=None, inputs=()):
-    config = {
-        "type": "mpirun",
-        "args": args,
-        "env": DEFAULT_ENV
-    }
+    config = {"type": "mpirun", "args": args, "env": DEFAULT_ENV}
     if task_data is not None:
         assert isinstance(task_data, bytes)
         config["data"] = task_data

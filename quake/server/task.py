@@ -9,7 +9,6 @@ class TaskState:
 
 
 class Task:
-
     def __init__(self, task_id, n_outputs, n_workers, config, keep):
         self.task_id = task_id
         self.inputs = []
@@ -25,7 +24,9 @@ class Task:
         self.consumers = set()
         self.events = None
         self.error = None
-        self.placement = None  # placement[output_id][part_id] -> set of workers where is data placed
+        self.placement = (
+            None  # placement[output_id][part_id] -> set of workers where is data placed
+        )
         self.sizes = None  # sizes[output_id][part_id] -> sizes of data parts
 
         self.b_level = None
