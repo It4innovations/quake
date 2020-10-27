@@ -80,7 +80,7 @@ def client(docker_cluster, tmpdir):
             [
                 "/bin/bash",
                 "-c",
-                "pgrep python3 | xargs kill; sleep 0.1 ; rm -rf /tmp/data ; python3 -m quake.datasrv /tmp/data",
+                "pgrep python3 | xargs kill; sleep 0.1 ; rm -rf /tmp/data ; python3 -m quake.datasrv",
             ]
         )
     ):

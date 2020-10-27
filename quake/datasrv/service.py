@@ -15,8 +15,7 @@ def validate_name(name):
 
 
 class Service:
-    def __init__(self, workdir):
-        self.workdir = workdir
+    def __init__(self):
         self.objects = {}
         self.connections = {}
 

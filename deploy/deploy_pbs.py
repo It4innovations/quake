@@ -39,7 +39,7 @@ def start_datasrv(cluster, node, workdir, env, init_cmd):
     prepare_directory(datasrv_data_dir)
 
     name = "datasrv"
-    commands = ["python", "-m", "quake.datasrv", str(datasrv_data_dir), "--port", DATASRV_PORT]
+    commands = ["python", "-m", "quake.datasrv", "--port", DATASRV_PORT]
     pid, cmd = start_process(commands, host=node, workdir=str(datasrv_dir), name=name, env=env,
                              init_cmd=init_cmd)
     cluster.add(node, pid, cmd, key="datasrv")

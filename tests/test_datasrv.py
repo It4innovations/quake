@@ -19,7 +19,6 @@ def test_data_service(tmpdir, root_dir):
                 "quake.datasrv",
                 "--port",
                 str(PORT1),
-                str(tmpdir.join("srv1")),
             ],
             env=env,
         )
@@ -32,7 +31,6 @@ def test_data_service(tmpdir, root_dir):
                 "quake.datasrv",
                 "--port",
                 str(PORT2),
-                str(tmpdir.join("srv2")),
             ],
             env=env,
         )
