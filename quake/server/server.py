@@ -335,15 +335,29 @@ class Server:
             await _remove_from_workers(workers, placement_key)
 
     async def connect_to_ds(self):
+        RETRY_COUNT = 20
+
         async def connect(hostname, port):
-            connection = abrpc.Connection(
-                await asyncio.open_connection(hostname, port=port)
-            )
-            asyncio.ensure_future(connection.serve())
-            return connection
+            error = None
+            for i in range(RETRY_COUNT):
+                try:
+                    connection = abrpc.Connection(
+                        await asyncio.open_connection(hostname, port=port)
+                    )
+                    asyncio.ensure_future(connection.serve())
+                    return connection
+                except ConnectionError as e:
+                    error = e
+                    logger.error("Failed to connected to %s:%s (attempt %s/%s)", hostname, port, i + 1, RETRY_COUNT)
+                    await asyncio.sleep(1.0)
+            raise error
+
+        logger.info("Connecting to %s data service(s) ...", len(self.state.all_workers))
 
         fs = [connect(w.hostname, self.ds_port) for w in self.state.all_workers]
         connections = await asyncio.gather(*fs)
+
+        logger.info("Connected to all data services")
 
         if self.monitor_filename:
             asyncio.ensure_future(self.collect_stats())
