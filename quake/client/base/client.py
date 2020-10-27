@@ -21,9 +21,20 @@ class Client:
 
     def _connect(self, hostname, port):
         async def connect():
-            connection = abrpc.Connection(
-                await asyncio.open_connection(hostname, port=port)
-            )
+            max_tries = 20
+            i = 0
+            while True:
+                try:
+                    connection = abrpc.Connection(
+                        await asyncio.open_connection(hostname, port=port)
+                    )
+                    break
+                except ConnectionError as e:
+                    i += 1
+                    logger.error("Could not connect to server (attempt [%s,%s])", i, max_tries)
+                    if i == max_tries:
+                        raise e
+                    await asyncio.sleep(1.0)
             asyncio.ensure_future(connection.serve())
             logger.info("Connection to server established")
             return connection
