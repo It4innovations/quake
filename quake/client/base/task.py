@@ -20,6 +20,9 @@ class Task:
         self.config = config
         self.state = TaskState.NEW
 
+    def is_new(self):
+        return self.state == TaskState.NEW
+
     def to_dict(self):
         return {
             "task_id": self.task_id,

@@ -50,11 +50,23 @@ def wait_all(results):
 
 def gather(result, output_id=None, collapse_single_output=True):
     client = ensure_global_client()
-    _flush_global_plan(client)
     task = _get_task(result)
+    if not task.keep:
+        if not task.is_new():
+            raise Exception("Task was already submitted, but without 'keep' flag")
+        task.keep = True
+        temp_keep = True
+    else:
+        temp_keep = False
+    _flush_global_plan(client)
+
     if output_id is None and task.n_outputs == 1 and collapse_single_output:
         output_id = 0
     result = client.gather(task, output_id)
+
+    if temp_keep:
+        client.remove(task)
+
     if output_id is not None:
         return [pickle.loads(r) for r in result]
     else:
@@ -62,7 +74,8 @@ def gather(result, output_id=None, collapse_single_output=True):
 
 
 def remove(result):
-    ensure_global_client().remove(result.task)
+    task = _get_task(result)
+    ensure_global_client().remove(task)
 
 
 # ===== MISC PUBLIC FUNCTIONS ==============
