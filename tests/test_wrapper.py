@@ -1,5 +1,6 @@
-import quake.client as quake
 import pytest
+
+import quake.client as quake
 
 
 @quake.mpi_task(n_processes=1)
@@ -105,6 +106,41 @@ def test_wrapper_args(client):
     f = my_const4()
     g = my_mul4(f, 2, keep=True)
     assert quake.gather(g) == [24, 26, 28, 30]
+
+
+def test_three_tasks(client):
+    quake.set_global_client(client)
+
+    @quake.mpi_task(n_processes=1, n_outputs=4)
+    def my_preprocessing():
+        # Let us produce 4 pieces of something on 1 node MPI process
+        return ["something1", "something2", "something3", "something4"]
+
+    @quake.mpi_task(n_processes=4)
+    @quake.arg("my_data", layout="scatter")
+    def my_computation(my_config, my_data):
+        # This is called in 4 MPI processes
+        from mpi4py import MPI
+
+        comm = MPI.COMM_WORLD
+        rank = comm.Get_rank()
+        return "Computation at rank {}: configuration={}, data={}".format(
+            rank, my_config, my_data
+        )
+
+    data = my_preprocessing()
+    result = my_computation("my_configuration", data)
+
+    assert (
+        "\n".join(quake.gather(result))
+        == """Computation at rank 0: configuration=my_configuration, data=something1
+Computation at rank 1: configuration=my_configuration, data=something2
+Computation at rank 2: configuration=my_configuration, data=something3
+Computation at rank 3: configuration=my_configuration, data=something4"""
+    )
+
+    # for i, r in enumerate(quake.gather(result)):
+    #    print("Output {}: {}".format(i, r))
 
 
 def test_wrapper_error(client):

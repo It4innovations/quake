@@ -1,7 +1,8 @@
 import json
 from datetime import datetime
-from pandas import DataFrame
+
 import numpy as np
+from pandas import DataFrame
 
 
 class EventStream:

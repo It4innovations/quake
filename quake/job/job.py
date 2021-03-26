@@ -5,12 +5,12 @@ import logging
 # import cloudpickle
 import pickle
 import random
+from datetime import datetime
 
 import abrpc
 
 from quake.common.layout import Layout
 from quake.common.utils import make_data_name
-from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -109,7 +109,12 @@ class Job:
         input_data = await asyncio.gather(*fs)
         jctx = JobContext(rank, input_data)
         output = config.fn(jctx, input_data, config.payload)
-        assert len(output) == config.n_outputs
+        if len(output) != config.n_outputs:
+            raise Exception(
+                "Task produced output of size {} but {} was expected".format(
+                    len(output), config.n_outputs
+                )
+            )
 
         for i, data in enumerate(output):
             await self.upload_data(i, data)

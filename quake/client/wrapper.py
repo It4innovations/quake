@@ -4,9 +4,9 @@ import pickle
 
 import cloudpickle
 
-from .base.task import new_py_task, make_input, Task
-from .job import _set_rank
 from ..job.config import JobConfiguration
+from .base.task import Task, make_input, new_py_task
+from .job import _set_rank
 
 
 def task_runner(jctx, input_data, python_job):
@@ -23,10 +23,11 @@ def _load(obj):
 
 
 class PythonJob:
-    def __init__(self, pickled_fn, task_args, const_args):
+    def __init__(self, pickled_fn, task_args, const_args, n_outputs):
         self.pickled_fn = pickled_fn
         self.task_args = task_args
         self.const_args = const_args
+        self.n_outputs = n_outputs
 
     def run(self, input_data):
         # kwargs = {name: pickle.loads(input_data[value]) for name, value in self.task_args.items()}
@@ -34,7 +35,22 @@ class PythonJob:
         for name, value in self.task_args.items():
             kwargs[name] = _load(input_data[value])
         result = cloudpickle.loads(self.pickled_fn)(**kwargs)
-        return [pickle.dumps(result)]
+        if self.n_outputs is None:
+            return [pickle.dumps(result)]
+        else:
+            if not isinstance(result, (list, tuple)):
+                raise Exception(
+                    "Multiple outputs were specified, result of python call has to be list or tuple, not {}".format(
+                        type(result)
+                    )
+                )
+            if self.n_outputs != len(result):
+                raise Exception(
+                    "Invalid number of output produced. Function returns {} outputs, but {} is expected".format(
+                        len(result), self.n_outputs
+                    )
+                )
+            return [pickle.dumps(r) for r in result]
 
 
 ArgConfig = collections.namedtuple("ArgConfig", "layout")
@@ -87,11 +103,17 @@ class FunctionWrapper:
     def __repr__(self):
         return "<FunctionWrapper of '{}'>".format(self.fn.__class__.__name__)
 
-    def __call__(self, *args, keep=False, **kwargs):
+    def __call__(self, *args, keep=False, n_outputs=None, **kwargs):
         inputs, task_args, const_args = self._prepare_inputs(args, kwargs)
-        payload = PythonJob(self.pickle_fn(), task_args, const_args)
-        config = pickle.dumps(JobConfiguration(task_runner, self.n_outputs, payload))
-        task = new_py_task(self.n_outputs, self.n_processes, keep, config, inputs)
+        if n_outputs is None:
+            n_outputs = self.n_outputs
+        if n_outputs is None:
+            real_n_outputs = 1
+        else:
+            real_n_outputs = n_outputs
+        payload = PythonJob(self.pickle_fn(), task_args, const_args, n_outputs)
+        config = pickle.dumps(JobConfiguration(task_runner, real_n_outputs, payload))
+        task = new_py_task(real_n_outputs, self.n_processes, keep, config, inputs)
         self.plan.add_task(task)
         return ResultProxy(task)
 

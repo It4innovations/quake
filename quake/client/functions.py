@@ -1,9 +1,9 @@
-import pickle
 import os
+import pickle
 
-from .base.plan import Plan
 from . import Client
-from .wrapper import FunctionWrapper, ArgConfig, ResultProxy
+from .base.plan import Plan
+from .wrapper import ArgConfig, FunctionWrapper, ResultProxy
 
 global_plan = Plan()
 global_client = None
@@ -11,7 +11,7 @@ global_client = None
 # ===== DECORATORS =========================
 
 
-def mpi_task(*, n_processes, n_outputs=1):
+def mpi_task(*, n_processes, n_outputs=None):
     def _builder(fn):
         return FunctionWrapper(fn, n_processes, n_outputs, global_plan)
 

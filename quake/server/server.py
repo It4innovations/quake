@@ -7,10 +7,10 @@ import tempfile
 
 import abrpc
 import uvloop
+from aiofile import AIOFile, Writer
 
 from .state import State
 from .task import TaskState
-from aiofile import AIOFile, Writer
 
 # !!!!!!!!!!!!!!!
 uvloop.install()
@@ -348,7 +348,13 @@ class Server:
                     return connection
                 except ConnectionError as e:
                     error = e
-                    logger.error("Failed to connected to %s:%s (attempt %s/%s)", hostname, port, i + 1, RETRY_COUNT)
+                    logger.error(
+                        "Failed to connected to %s:%s (attempt %s/%s)",
+                        hostname,
+                        port,
+                        i + 1,
+                        RETRY_COUNT,
+                    )
                     await asyncio.sleep(1.0)
             raise error
 

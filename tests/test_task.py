@@ -6,10 +6,10 @@ import pytest
 import quake.job
 from quake.client.base.task import (
     Task,
-    new_mpirun_task,
-    upload_data,
-    new_py_task,
     make_input,
+    new_mpirun_task,
+    new_py_task,
+    upload_data,
 )
 
 

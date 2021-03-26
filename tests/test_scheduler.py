@@ -1,6 +1,5 @@
 from quake.client.base.task import Task, make_input
 
-
 # TX[CPUS, Outputs]
 #
 # T1[2]

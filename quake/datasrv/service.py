@@ -1,10 +1,11 @@
 import asyncio
 from datetime import datetime
-import uvloop
-from abrpc import expose, Connection
 
-from .obj import Object
+import uvloop
+from abrpc import Connection, expose
+
 from .monitoring import get_resources
+from .obj import Object
 
 uvloop.install()
 

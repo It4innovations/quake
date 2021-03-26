@@ -31,7 +31,9 @@ class Client:
                     break
                 except ConnectionError as e:
                     i += 1
-                    logger.error("Could not connect to server (attempt [%s,%s])", i, max_tries)
+                    logger.error(
+                        "Could not connect to server (attempt [%s,%s])", i, max_tries
+                    )
                     if i == max_tries:
                         raise e
                     await asyncio.sleep(1.0)

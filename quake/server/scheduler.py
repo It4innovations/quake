@@ -1,4 +1,5 @@
 import logging
+
 from .task import TaskState
 
 logger = logging.getLogger(__file__)
