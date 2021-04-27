@@ -127,29 +127,35 @@ class Server:
         self.monitor_filename = monitor_filename
 
     @staticmethod
-    async def _gather_output(task, output_id):
-        workers = [random.choice(tuple(ws)) for ws in task.placement[output_id]]
-        assert len(workers) == task.n_workers
-        fs = [
-            w.ds_connection.call("get_data", task.make_data_name(output_id, i))
-            for i, w in enumerate(workers)
-        ]
-        return await asyncio.gather(*fs)
+    async def _gather_output(task, output_id, part_id):
+        if part_id is None:
+            workers = [random.choice(tuple(ws)) for ws in task.placement[output_id]]
+            assert len(workers) == task.n_workers
+            fs = [
+                w.ds_connection.call("get_data", task.make_data_name(output_id, i))
+                for i, w in enumerate(workers)
+            ]
+            return await asyncio.gather(*fs)
+        else:
+            assert 0 < part_id < task.n_workers
+            w = random.choice(tuple(task.placement[output_id][part_id]))
+            return await w.ds_connection.call("get_data", task.make_data_name(output_id, part_id))
+
 
     @abrpc.expose()
-    async def gather(self, task_id, output_id):
+    async def gather(self, task_id, output_id, part_id=None):
         task = self.state.tasks.get(task_id)
         if task is None:
             raise Exception("Task '{}' not found".format(task_id))
         await _wait_for_task(task)
         if output_id is None:
             fs = [
-                self._gather_output(task, output_id)
+                self._gather_output(task, output_id, part_id)
                 for output_id in range(task.n_outputs)
             ]
             return await asyncio.gather(*fs)
         else:
-            return await self._gather_output(task, output_id)
+            return await self._gather_output(task, output_id, part_id)
 
     @abrpc.expose()
     async def wait(self, task_id):

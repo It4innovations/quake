@@ -84,11 +84,11 @@ class Client:
         loop = asyncio.get_event_loop()
         loop.run_until_complete(self.connection.call("wait_all", ids))
 
-    def gather(self, task, output_id=None):
+    def gather(self, task, output_id=None, part_id=None):
         logger.debug("Gathering task id=%s", task.task_id)
         if not task.keep:
             raise Exception("'keep' flag is not set for a task")
         loop = asyncio.get_event_loop()
         return loop.run_until_complete(
-            self.connection.call("gather", task.task_id, output_id)
+            self.connection.call("gather", task.task_id, output_id, part_id)
         )
