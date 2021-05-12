@@ -45,12 +45,14 @@ def start_datasrv(cluster, node, workdir, env, init_cmd):
     cluster.add(node, pid, cmd, key="datasrv")
 
 
-def start_server(cluster, workers, workdir, env, init_cmd):
+def start_server(cluster, workers, workdir, env, init_cmd, debug):
     workdir = workdir / "server"
     prepare_directory(workdir)
 
     commands = ["python", "-m", "quake.server", "--ds-port", DATASRV_PORT, "--workers",
                 ",".join(workers)]
+    if debug:
+        commands.append("--debug")
     pid, cmd = start_process(commands, workdir=str(workdir), name="server", env=env,
                              init_cmd=init_cmd)
     cluster.add(HOSTNAME, pid, cmd, key="server")
@@ -60,7 +62,8 @@ def start_server(cluster, workers, workdir, env, init_cmd):
 @click.argument("workdir")
 @click.option("--init-cmd", default="")
 @click.option("--short-names", default=False, is_flag=True)
-def up(workdir, init_cmd, short_names):
+@click.option("--debug", default=False, is_flag=True)
+def up(workdir, init_cmd, short_names, debug):
     nodes = get_pbs_nodes(short_names)
 
     workdir = pathlib.Path(workdir).absolute()
@@ -72,7 +75,7 @@ def up(workdir, init_cmd, short_names):
     cluster = Cluster(str(workdir))
     for node in nodes:
         start_datasrv(cluster, node, workdir, env, init_cmd)
-    start_server(cluster, nodes, workdir, env, init_cmd)
+    start_server(cluster, nodes, workdir, env, init_cmd, debug)
 
     cluster_path = workdir / CLUSTER_FILENAME
     logging.info(f"Writing cluster into {cluster_path}")
