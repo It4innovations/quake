@@ -137,10 +137,16 @@ class Server:
             ]
             return await asyncio.gather(*fs)
         else:
-            assert 0 < part_id < task.n_workers
+            if not (0 <= part_id < task.n_workers):
+                raise Exception(
+                    "Invalid part_id for task {}, got {}. There are {} workers".format(
+                        task.task_id, part_id, task.n_workers
+                    )
+                )
             w = random.choice(tuple(task.placement[output_id][part_id]))
-            return await w.ds_connection.call("get_data", task.make_data_name(output_id, part_id))
-
+            return await w.ds_connection.call(
+                "get_data", task.make_data_name(output_id, part_id)
+            )
 
     @abrpc.expose()
     async def gather(self, task_id, output_id, part_id=None):
