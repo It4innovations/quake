@@ -20,7 +20,7 @@ def compute_b_levels(tasks):
         task = stack.pop()
         task.b_level = 1 + max((t.b_level for t in task.consumers), default=0)
         for t in task.deps:
-            if task.state != TaskState.UNFINISHED:
+            if t.state != TaskState.UNFINISHED:
                 continue
             to_compute[t] -= 1
             v = to_compute[t]
