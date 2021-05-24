@@ -5,6 +5,7 @@ import logging
 import uvloop
 
 from .job import Job
+from .globals import set_job_flag
 
 uvloop.install()
 
@@ -18,6 +19,7 @@ def parse_args():
 
 
 async def main():
+    set_job_flag()
     args = parse_args()
     job = Job(args.task_id, args.rank, args.ds_local_port, {})
     await job.start()
